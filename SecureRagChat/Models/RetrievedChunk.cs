@@ -15,4 +15,7 @@ public sealed class RetrievedChunk
 
     [JsonPropertyName("snippet")]
     public required string Snippet { get; set; }
+
+    [JsonPropertyName("content")]
+    public string? Content { get; set; }
 }

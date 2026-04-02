@@ -36,12 +36,12 @@ public sealed class UserTokenAccessor
     /// <summary>
     /// Returns the raw bearer token from the Authorization header, or null if absent/anonymous.
     /// </summary>
-    public async Task<string?> GetUserTokenAsync(CancellationToken ct = default)
+    public async Task<string?> GetUserTokenAsync(bool allowDevelopmentFallback, CancellationToken ct = default)
     {
         var authHeader = _httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
         if (string.IsNullOrWhiteSpace(authHeader))
         {
-            if (_hostEnvironment.IsDevelopment() && _azureSearchOptions.UseLoggedInDeveloperIdentityForUserToken)
+            if (allowDevelopmentFallback && _hostEnvironment.IsDevelopment() && _azureSearchOptions.UseLoggedInDeveloperIdentityForUserToken)
             {
                 _logger.LogDebug("No incoming user bearer token. Attempting development Azure CLI user token fallback.");
                 return await _developmentUserTokenProvider.TryGetUserTokenAsync(ct);

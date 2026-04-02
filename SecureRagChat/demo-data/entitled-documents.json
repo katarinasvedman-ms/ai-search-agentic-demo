@@ -1,54 +1,227 @@
 [
   {
     "id": "ent-001",
-    "title": "Premium Agreement Pricing Terms",
-    "url": "https://demo.contoso.com/internal/premium-pricing-terms",
-    "category": "pricing",
-    "snippet": "Premium agreement base fee is 120000 USD annually with a 12 percent volume discount above 5 million monthly requests and a 3-year renewal option at fixed uplift.",
+    "title": "Aurora RAN 6651 Product Detail Sheet",
+    "url": "/api/demo-docs/ent-001",
+    "category": "radio-access",
+    "snippet": "Aurora RAN 6651 supports 4T4R mid-band deployments with 320 W maximum output, integrated GPS timing, and dual fiber fronthaul uplinks. The protected detail sheet includes supported band combinations, environmental limits, and approved mounting kits for rooftop and pole installations.",
+    "content": "Aurora RAN 6651 supports 4T4R mid-band deployments with a 320 W maximum output profile, integrated GPS timing, and dual fiber fronthaul uplinks. Supported deployment environments include rooftop, pole, and constrained urban site modernizations where space reuse is required.\n\nApproved installation kits differ by wind-loading and mounting scenario. Field teams should verify supported band combinations, software release alignment, and environmental operating limits before dispatching installation crews. The detail sheet is the source document for those compatibility checks.",
     "authorizedUsers": [
-      "alice@contoso.com"
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
     ],
     "authorizedGroups": [
-      "premium-contract-reviewers"
+      "ran-specialists"
     ]
   },
   {
     "id": "ent-002",
-    "title": "Contoso Liability Addendum",
-    "url": "https://demo.contoso.com/internal/contoso-liability-addendum",
-    "category": "legal",
-    "snippet": "Contoso agreement liability cap is 2 times annual contract value with explicit exclusion for indirect damages and data migration delays.",
+    "title": "Aurora RAN 6651 Installation and Commissioning Guide",
+    "url": "/api/demo-docs/ent-002",
+    "category": "manuals",
+    "snippet": "The commissioning guide covers grounding order, optical module checks, startup LED states, and the mandatory calibration sequence before sector activation. It also defines the acceptance test target of below 1.5 microseconds timing offset after fronthaul lock.",
+    "content": "Commissioning begins with grounding verification, optics inspection, and startup state validation before any sector activation is attempted. The guide requires the installer to confirm GPS timing lock, fronthaul readiness, and management-plane reachability before moving to radio calibration.\n\nThe mandatory calibration sequence ends with an acceptance target of below 1.5 microseconds timing offset after fronthaul lock. If the offset remains above that threshold, the guide directs teams to pause commissioning and verify timing source configuration, fiber integrity, and transport synchronization settings.",
     "authorizedUsers": [
-      "alice@contoso.com"
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
     ],
     "authorizedGroups": [
-      "legal-reviewers"
+      "field-engineering"
     ]
   },
   {
     "id": "ent-003",
-    "title": "Fabrikam Liability Addendum",
-    "url": "https://demo.contoso.com/internal/fabrikam-liability-addendum",
-    "category": "legal",
-    "snippet": "Fabrikam agreement liability cap is 1 times annual contract value, but includes a separate breach remedy credit and narrower force majeure language.",
+    "title": "Nimbus Indoor 2400 Hardware Reference",
+    "url": "/api/demo-docs/ent-003",
+    "category": "indoor-coverage",
+    "snippet": "Nimbus Indoor 2400 requires PoE++ power, supports shared management with up to 96 indoor cells per controller domain, and exposes venue zoning templates for offices, concourses, and hospital corridors. The protected reference includes cabling limits, antenna patterns, and controller dependency notes.",
+    "content": "Nimbus Indoor 2400 requires PoE++ power and supports shared management for up to 96 indoor cells per controller domain under the recommended reference design. Approved deployment profiles include offices, hospital corridors, concourses, and other structured indoor mobility environments.\n\nThe hardware reference defines cabling limits, antenna pattern behavior, and controller dependency notes used during floor-by-floor design and validation. It is the primary technical source for teams that need to confirm indoor hardware fit before finalizing zoning workbooks and RF tuning steps.",
     "authorizedUsers": [
-      "alice@contoso.com"
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
     ],
     "authorizedGroups": [
-      "legal-reviewers"
+      "ran-specialists"
     ]
   },
   {
     "id": "ent-004",
-    "title": "Internal Premium Escalation Policy",
-    "url": "https://demo.contoso.com/internal/premium-escalation",
-    "category": "support",
-    "snippet": "Premium incidents receive a 15-minute response objective and mandatory executive notification for severity 1 outages over 30 minutes.",
+    "title": "WaveSync 8600 Optical Compatibility Matrix",
+    "url": "/api/demo-docs/ent-004",
+    "category": "transport",
+    "snippet": "WaveSync 8600 supports 10G and 25G optics for fronthaul aggregation, with qualified modules listed by temperature class and reach profile. The compatibility matrix notes that long-reach 25G modules require software release 24.3 or later and that timing holdover alarms must be enabled for mixed optics shelves.",
+    "content": "WaveSync 8600 supports 10G and 25G optics for fronthaul aggregation, with qualified modules listed by temperature class, reach profile, and software dependency. Long-reach 25G optics require release 24.3 or later and should not be activated on unsupported mixed-revision shelves.\n\nFor mixed optics shelves, timing holdover alarms must be enabled before service activation. The compatibility matrix is used during deployment planning and incident remediation to ensure optics selection matches thermal environment, distance, and software support state.",
     "authorizedUsers": [
-      "alice@contoso.com"
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
     ],
     "authorizedGroups": [
-      "operations-leads"
+      "transport-engineering"
+    ]
+  },
+  {
+    "id": "ent-005",
+    "title": "WaveSync 8600 Troubleshooting Handbook",
+    "url": "/api/demo-docs/ent-005",
+    "category": "support",
+    "snippet": "The troubleshooting handbook maps transport and timing alarms to corrective actions, including sync source fallback, optics reseat steps, and packet delay variation thresholds. It defines the preferred triage order for loss-of-sync incidents affecting radio clusters connected to Aurora sites.",
+    "content": "The troubleshooting handbook maps transport and timing alarms to corrective actions for WaveSync 8600 operating environments. Recommended triage begins with timing source verification, optics health review, and transport shelf alarm correlation before site-level resets are considered.\n\nFor loss-of-sync incidents affecting Aurora-connected radio clusters, the handbook prioritizes sync source fallback, optics inspection, and packet delay variation review. It is intended to reduce trial-and-error troubleshooting during production-impacting timing events.",
+    "authorizedUsers": [
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
+    ],
+    "authorizedGroups": [
+      "support-leads"
+    ]
+  },
+  {
+    "id": "ent-006",
+    "title": "CoreSphere Packet Core Upgrade Runbook",
+    "url": "/api/demo-docs/ent-006",
+    "category": "core-network",
+    "snippet": "The runbook defines the rolling upgrade order for control plane and user plane components, smoke tests for subscriber attach success, and rollback gates for latency regressions above 8 percent. It also specifies that factory deployments should pause AGV traffic policy updates during the maintenance window.",
+    "content": "The CoreSphere upgrade runbook defines the rolling upgrade order for control plane and user plane components in distributed and centralized deployment models. After each step, operations teams must run smoke tests covering subscriber attach success, user plane reachability, and policy synchronization state.\n\nRollback is required if latency regresses above 8 percent against the established baseline or if attach success falls below the approved threshold. For factory environments, AGV traffic policy updates must be paused during the maintenance window to avoid introducing concurrent behavioral changes.",
+    "authorizedUsers": [
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
+    ],
+    "authorizedGroups": [
+      "core-operations"
+    ]
+  },
+  {
+    "id": "ent-007",
+    "title": "Aurora vs Nimbus Coverage Planning Notes",
+    "url": "/api/demo-docs/ent-007",
+    "category": "planning",
+    "snippet": "Aurora RAN 6651 is recommended for macro outdoor layers and wide-area capacity expansion, while Nimbus Indoor 2400 is intended for indoor mobility, floor-level coverage shaping, and high-density venue design. The planning note compares mounting constraints, power assumptions, and handoff boundaries between the two product families.",
+    "content": "Aurora RAN 6651 is recommended for macro outdoor layers, suburban expansion, and outdoor capacity reinforcement where broad coverage and transport-integrated timing are required. Nimbus Indoor 2400 is recommended for indoor mobility, floor-level shaping, and high-density venues where zone-by-zone design matters more than broad outdoor reach.\n\nThe planning note compares mounting constraints, power assumptions, and handoff boundaries between the two product families. It is used during architecture reviews to determine whether a deployment should remain macro-led, indoor-led, or use a layered combination of both approaches.",
+    "authorizedUsers": [
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
+    ],
+    "authorizedGroups": [
+      "solution-architects"
+    ]
+  },
+  {
+    "id": "ent-008",
+    "title": "Private 5G Manufacturing Deployment Blueprint",
+    "url": "/api/demo-docs/ent-008",
+    "category": "private-5g",
+    "snippet": "The deployment blueprint combines Aurora radios, Nimbus indoor cells, WaveSync transport, and CoreSphere automation into a phased manufacturing rollout. It includes shop-floor spectrum assumptions, resilient backhaul zoning, and the recommended cutover sequence for machine vision and AGV workloads.",
+    "content": "The manufacturing blueprint combines Aurora radios, Nimbus indoor cells, WaveSync transport, and CoreSphere automation into a phased private 5G rollout. It defines the role of perimeter coverage, indoor hall coverage, timing and fronthaul resiliency, and packet core automation in a single deployment pattern.\n\nThe blueprint includes shop-floor spectrum assumptions, resilient backhaul zoning, and the recommended cutover sequence for machine vision and AGV workloads. It is the main reference used when comparing product roles in a manufacturing-specific architecture discussion.",
+    "authorizedUsers": [
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
+    ],
+    "authorizedGroups": [
+      "private-5g-architects"
+    ]
+  },
+  {
+    "id": "ent-009",
+    "title": "Aurora RAN 6651 Preventive Maintenance Checklist",
+    "url": "/api/demo-docs/ent-009",
+    "category": "manuals",
+    "snippet": "The preventive maintenance checklist defines quarterly inspection steps for connectors, weather seals, mounting hardware, and GPS timing status. It also includes a recommended remediation order when VSWR alarms appear after severe weather events.",
+    "content": "Quarterly preventive maintenance for Aurora RAN 6651 includes inspection of connectors, weather seals, mounting integrity, cable routing, and GPS timing state. Field teams must log visible corrosion, water ingress indicators, and mechanical drift before closing the inspection window.\n\nWhen VSWR alarms appear after severe weather events, the checklist prioritizes connector inspection, cable path verification, seal review, and physical mount stabilization before radio replacement is considered. This checklist is intended for repeatable preventive maintenance rather than incident-only response.",
+    "authorizedUsers": [
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
+    ],
+    "authorizedGroups": [
+      "field-engineering"
+    ]
+  },
+  {
+    "id": "ent-010",
+    "title": "Aurora RAN 6651 Supported Band and Release Matrix",
+    "url": "/api/demo-docs/ent-010",
+    "category": "radio-access",
+    "snippet": "This protected matrix maps supported band combinations, software releases, and hardware revisions for Aurora RAN 6651. It identifies which combinations require release 24.3 or later and notes the migration path for legacy rooftop installations.",
+    "content": "The release matrix maps supported band combinations, software versions, and hardware revisions for Aurora RAN 6651. It is used when validating whether an existing rooftop deployment can move to a new software release without first changing radio or transport components.\n\nSome band combinations require release 24.3 or later, and legacy rooftop installations may need intermediate migration steps before the target configuration is considered supported. The matrix is the authoritative compatibility source during planning and upgrade approval.",
+    "authorizedUsers": [
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
+    ],
+    "authorizedGroups": [
+      "ran-specialists"
+    ]
+  },
+  {
+    "id": "ent-011",
+    "title": "Nimbus Indoor 2400 RF Tuning Guide",
+    "url": "/api/demo-docs/ent-011",
+    "category": "indoor-coverage",
+    "snippet": "The RF tuning guide explains power targets, zoning profiles, and interference controls for Nimbus Indoor 2400 in office towers, hospital wings, and stadium concourses. It includes a recommended validation sequence for post-installation mobility testing.",
+    "content": "The RF tuning guide defines power targets, zoning profiles, and interference controls for Nimbus Indoor 2400 in office towers, hospital wings, stadium concourses, and similar indoor environments. It is used after the physical design is complete and before production acceptance begins.\n\nPost-installation validation includes mobility walk testing, handoff confirmation, and hotspot review in high-density user areas. The guide is intended for engineers tuning an installed indoor system, not for initial marketing-level product evaluation.",
+    "authorizedUsers": [
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
+    ],
+    "authorizedGroups": [
+      "ran-specialists"
+    ]
+  },
+  {
+    "id": "ent-012",
+    "title": "Nimbus Venue Zoning Workbook",
+    "url": "/api/demo-docs/ent-012",
+    "category": "planning",
+    "snippet": "The venue zoning workbook provides sample floor-by-floor layouts, crowd-density assumptions, and controller domain boundaries for Nimbus Indoor 2400 deployments. It is intended for authenticated solution teams preparing indoor coverage designs.",
+    "content": "The venue zoning workbook provides sample floor-by-floor layouts, crowd-density assumptions, and controller domain boundaries for Nimbus Indoor 2400 deployments. Example models include office floors, hospital wings, stadium concourses, and multi-level transit facilities.\n\nThe workbook is used during indoor solution design to align zoning assumptions with controller scale and handoff intent. It sits between high-level architecture work and RF tuning, providing the structured input for detailed engineering steps.",
+    "authorizedUsers": [
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
+    ],
+    "authorizedGroups": [
+      "solution-architects"
+    ]
+  },
+  {
+    "id": "ent-013",
+    "title": "WaveSync 8600 Alarm Reference",
+    "url": "/api/demo-docs/ent-013",
+    "category": "transport",
+    "snippet": "This alarm reference explains severity mapping, probable causes, and first-response guidance for timing drift, optics mismatch, and fronthaul degradation events on WaveSync 8600 platforms. It complements the troubleshooting handbook with operational alarm detail.",
+    "content": "The alarm reference explains severity mapping, probable causes, and first-response guidance for timing drift, optics mismatch, and fronthaul degradation events on WaveSync 8600 platforms. It is used by transport operations teams to quickly determine whether an alarm is informational, warning, or service-affecting.\n\nEach entry provides probable cause hints, first-response checks, and escalation expectations. The reference complements the troubleshooting handbook by focusing on alarm interpretation and operational classification rather than full incident workflows.",
+    "authorizedUsers": [
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
+    ],
+    "authorizedGroups": [
+      "transport-engineering"
+    ]
+  },
+  {
+    "id": "ent-014",
+    "title": "CoreSphere Rollback and Recovery Checklist",
+    "url": "/api/demo-docs/ent-014",
+    "category": "core-network",
+    "snippet": "The rollback checklist defines recovery gates for CoreSphere upgrades, including subscriber attach verification, policy sync status, latency regression thresholds, and user plane failback order. It is used during controlled maintenance windows and emergency reversions.",
+    "content": "The rollback and recovery checklist defines the exact sequence for reversing a CoreSphere maintenance action when service validation fails. Required gates include subscriber attach verification, policy synchronization checks, latency comparison, and confirmation that user plane state is restored in the intended order.\n\nThe checklist is used in both controlled maintenance windows and emergency reversions. It minimizes ambiguity when teams must switch from an upgrade path back to a known-good configuration under service pressure.",
+    "authorizedUsers": [
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
+    ],
+    "authorizedGroups": [
+      "core-operations"
+    ]
+  },
+  {
+    "id": "ent-015",
+    "title": "Lifecycle Services Escalation Matrix",
+    "url": "/api/demo-docs/ent-015",
+    "category": "services",
+    "snippet": "The escalation matrix lists response ownership, named support roles, and executive notification triggers across radio, transport, and core incidents. It is intended for authenticated customers with service packages that include proactive incident management.",
+    "content": "The escalation matrix lists response ownership, named support roles, and executive notification triggers across radio, transport, and core incidents. It distinguishes between technical response ownership, service management ownership, and executive notification thresholds based on incident severity and duration.\n\nThis document is used in active service relationships where proactive incident management is part of the operating model. It provides the operational detail that is intentionally omitted from public service marketing material.",
+    "authorizedUsers": [
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
+    ],
+    "authorizedGroups": [
+      "support-leads"
+    ]
+  },
+  {
+    "id": "ent-016",
+    "title": "Private 5G Site Survey and Readiness Checklist",
+    "url": "/api/demo-docs/ent-016",
+    "category": "private-5g",
+    "snippet": "The site survey checklist captures spectrum assumptions, structural constraints, production-line mobility hotspots, and backhaul readiness for private 5G deployments. It is used before finalizing blueprints for manufacturing and energy-site rollouts.",
+    "content": "The site survey and readiness checklist captures spectrum assumptions, structural constraints, mobility hotspots, device density, and backhaul readiness before a private 5G design is finalized. It is used to confirm whether the site can move from architecture concept into deployable blueprint status.\n\nSurvey outputs feed directly into blueprint completion, zoning decisions, and rollout sequencing for manufacturing and energy-site deployments. Without this checklist, delivery teams risk moving into implementation with incomplete environmental and operational assumptions.",
+    "authorizedUsers": [
+      "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
+    ],
+    "authorizedGroups": [
+      "private-5g-architects"
     ]
   }
 ]
+

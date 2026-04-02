@@ -62,10 +62,6 @@ function detailsRows(
       value: details?.retrievalStyle ?? 'Hybrid + semantic',
     });
     rows.push({
-      label: 'Query',
-      value: details?.query ?? 'not available',
-    });
-    rows.push({
       label: 'Filters',
       value: details?.filters ?? 'security trimming applied by retrieval plane',
     });

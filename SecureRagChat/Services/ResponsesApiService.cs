@@ -127,7 +127,7 @@ public sealed class ResponsesApiService : IResponsesApiService
             sb.AppendLine($"[Source {i + 1}] Title: {chunk.Title}");
             if (!string.IsNullOrEmpty(chunk.Url))
                 sb.AppendLine($"URL: {chunk.Url}");
-            sb.AppendLine(chunk.Snippet);
+            sb.AppendLine(string.IsNullOrWhiteSpace(chunk.Content) ? chunk.Snippet : chunk.Content);
             sb.AppendLine();
         }
         return sb.ToString();

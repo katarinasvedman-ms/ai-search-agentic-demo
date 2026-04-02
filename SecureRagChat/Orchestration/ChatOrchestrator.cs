@@ -37,7 +37,8 @@ public sealed class ChatOrchestrator
     public async Task<ChatResponse> OrchestrateAsync(ChatRequest request, CancellationToken ct = default)
     {
         // Step 1: Auth inspection
-        var userToken = await _tokenAccessor.GetUserTokenAsync(ct);
+        var allowDevelopmentFallback = request.PreferEntitledContent == true;
+        var userToken = await _tokenAccessor.GetUserTokenAsync(allowDevelopmentFallback, ct);
         var isAuthenticated = _tokenAccessor.IsAuthenticated || userToken is not null;
         var mode = request.Mode;
 
@@ -102,7 +103,8 @@ public sealed class ChatOrchestrator
                     IsAuthenticated = isAuthenticated,
                     RetrievalMode = mode,
                     RetrievalSource = retrievalResult.Source
-                }
+                },
+                RetrievalDetails = BuildRetrievalDetails(request.Query, mode, retrievalResult, isAuthenticated)
             };
         }
 
@@ -138,8 +140,50 @@ public sealed class ChatOrchestrator
                 IsAuthenticated = isAuthenticated,
                 RetrievalMode = mode,
                 RetrievalSource = retrievalResult.Source
-            }
+            },
+            RetrievalDetails = BuildRetrievalDetails(request.Query, mode, retrievalResult, isAuthenticated)
         };
+    }
+
+    private static RetrievalDetails BuildRetrievalDetails(
+        string query,
+        RetrievalMode mode,
+        RetrievalResult retrievalResult,
+        bool isAuthenticated)
+    {
+        return new RetrievalDetails
+        {
+            Mode = mode == RetrievalMode.Agentic ? "agentic" : "traditional",
+            RetrievalStyle = ResolveRetrievalStyle(mode, retrievalResult.Source),
+            Query = query,
+            Filters = mode == RetrievalMode.Traditional && retrievalResult.Plane == RetrievalPlane.Entitled
+                ? "security trimming applied by retrieval plane"
+                : "none",
+            ResultsCount = retrievalResult.ChunkCount,
+            Authorization = ResolveAuthorizationLabel(retrievalResult.Plane, isAuthenticated),
+            KnowledgeBaseUsed = mode == RetrievalMode.Agentic ? retrievalResult.Source == RetrievalSource.KnowledgeBase : null,
+            QueryConstruction = mode == RetrievalMode.Agentic ? "handled by system" : null
+        };
+    }
+
+    private static string ResolveRetrievalStyle(RetrievalMode mode, RetrievalSource source)
+    {
+        if (mode == RetrievalMode.Agentic)
+        {
+            return "Knowledge base";
+        }
+
+        return source == RetrievalSource.Bing ? "Web fallback" : "Hybrid + semantic";
+    }
+
+    private static string ResolveAuthorizationLabel(RetrievalPlane plane, bool isAuthenticated)
+    {
+        if (plane == RetrievalPlane.Entitled)
+        {
+            return "entitled user";
+        }
+
+        return isAuthenticated ? "user" : "guest";
     }
 
     private async Task<RetrievalResult> RetrieveAnonymousAsync(string query, CancellationToken ct)

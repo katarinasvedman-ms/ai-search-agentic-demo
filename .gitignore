@@ -3,6 +3,7 @@
 **/obj/
 **/dist/
 **/build/
+**/artifacts/
 
 # Node dependencies
 **/node_modules/

@@ -29,8 +29,10 @@ builder.Services.Configure<AgenticRetrievalOptions>(
     builder.Configuration.GetSection(AgenticRetrievalOptions.SectionName));
 
 // --- Azure credential (singleton, shared across services) ---
+var azureTenantId = builder.Configuration["AzureAd:TenantId"];
+
 builder.Services.AddSingleton<TokenCredential>(
-    new DefaultAzureCredential());
+    _ => CreateTokenCredential(azureTenantId));
 
 // --- HTTP clients ---
 builder.Services.AddHttpClient("AzureSearch");
@@ -46,6 +48,7 @@ builder.Services.AddSingleton<IRetrievalService, AzureSearchRetrievalService>();
 builder.Services.AddSingleton<IAgenticRetrievalService, AgenticRetrievalService>();
 builder.Services.AddSingleton<IBingRetrievalService, BingRetrievalService>();
 builder.Services.AddSingleton<IResponsesApiService, ResponsesApiService>();
+builder.Services.AddSingleton<IDemoDocumentCatalog, DemoDocumentCatalog>();
 
 // --- Orchestrator ---
 builder.Services.AddScoped<ChatOrchestrator>();
@@ -61,3 +64,17 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static TokenCredential CreateTokenCredential(string? tenantId)
+{
+    var credentialOptions = new DefaultAzureCredentialOptions();
+
+    if (!string.IsNullOrWhiteSpace(tenantId))
+    {
+        credentialOptions.TenantId = tenantId;
+        credentialOptions.SharedTokenCacheTenantId = tenantId;
+        credentialOptions.VisualStudioTenantId = tenantId;
+    }
+
+    return new DefaultAzureCredential(credentialOptions);
+}

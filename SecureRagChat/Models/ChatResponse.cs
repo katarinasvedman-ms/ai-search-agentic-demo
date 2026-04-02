@@ -11,6 +11,7 @@ public sealed class ChatResponse
 
     public required Citation[] Citations { get; set; }
     public required ChatDiagnostics Diagnostics { get; set; }
+    public RetrievalDetails? RetrievalDetails { get; set; }
 }
 
 public sealed class ChatDiagnostics
@@ -23,4 +24,16 @@ public sealed class ChatDiagnostics
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public RetrievalSource RetrievalSource { get; set; }
+}
+
+public sealed class RetrievalDetails
+{
+    public required string Mode { get; set; }
+    public string? RetrievalStyle { get; set; }
+    public string? Query { get; set; }
+    public string? Filters { get; set; }
+    public int ResultsCount { get; set; }
+    public string? Authorization { get; set; }
+    public bool? KnowledgeBaseUsed { get; set; }
+    public string? QueryConstruction { get; set; }
 }

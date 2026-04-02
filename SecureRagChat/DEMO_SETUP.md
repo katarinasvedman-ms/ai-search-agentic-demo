@@ -34,6 +34,8 @@ This creates:
 - `public-index`
 - `entitled-index`
 
+The index schema includes a `content` field. If you have already created the indexes, recreate them before reseeding so the richer full-document text is available to retrieval.
+
 ## 4. Seed Curated Demo Data
 
 ```powershell
@@ -44,6 +46,11 @@ This uploads:
 
 - `demo-data/public-documents.json` -> `public-index`
 - `demo-data/entitled-documents.json` -> `entitled-index`
+
+The sample corpus is organized to mirror a telecom product experience:
+
+- Public index: guest-safe product pages, solution briefs, and service overviews
+- Entitled index: protected manuals, detail sheets, compatibility notes, and runbooks
 
 ## 5. Configure Backend and Frontend Locally
 
@@ -64,6 +71,8 @@ Create a knowledge source and knowledge base in Azure AI Search, then set:
 
 - `AgenticRetrieval:KnowledgeBaseName`
 
+Suggested source material for the knowledge base is included under `demo-data/knowledge-base/`.
+
 Current app behavior:
 
 - Traditional mode demonstrates per-user security trimming via `x-ms-query-source-authorization`.
@@ -73,7 +82,8 @@ Current app behavior:
 ## 7. Rehearsal Checklist
 
 - Verify `public-index` and `entitled-index` document counts are non-zero.
-- Run guest query for premium pricing terms and confirm only public summaries are returned.
-- Run authenticated query for the same prompt and confirm sensitive terms become available.
+- Run a guest query for Aurora RAN 6651 and confirm only public product summaries are returned.
+- Run an authenticated query for the same prompt and confirm protected manuals and detail sheets become available.
 - Switch to Agentic mode and confirm logs show one knowledge base retrieve call.
-- Run the no-answer prompt (Martian customers) and confirm no hallucinated fallback.
+- Run a comparison prompt for Aurora RAN 6651 versus Nimbus Indoor 2400 and confirm the answer combines multiple sources.
+- Run the no-answer prompt for lunar mining networks and confirm no hallucinated fallback.

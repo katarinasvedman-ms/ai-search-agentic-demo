@@ -6,12 +6,26 @@ param(
   [string]$EntitledIndexName = 'entitled-index',
   [string]$PublicDocsPath = './demo-data/public-documents.json',
   [string]$EntitledDocsPath = './demo-data/entitled-documents.json',
-  [string]$ApiVersion = '2024-07-01'
+  [string]$ApiKey,
+  [string]$ApiVersion = '2025-11-01-preview'
 )
 
 $ErrorActionPreference = 'Stop'
 
 $endpoint = "https://$SearchServiceName.search.windows.net"
+$headers = @{ 'Content-Type' = 'application/json' }
+
+if (-not [string]::IsNullOrWhiteSpace($ApiKey)) {
+  $headers['api-key'] = $ApiKey
+}
+else {
+  $accessToken = az account get-access-token --resource "https://search.azure.com" --query accessToken -o tsv
+  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($accessToken)) {
+    throw "Failed to acquire Azure AI Search access token from Azure CLI."
+  }
+
+  $headers['Authorization'] = "Bearer $accessToken"
+}
 
 function Submit-Documents {
   param(
@@ -36,6 +50,7 @@ function Submit-Documents {
       title = $doc.title
       url = $doc.url
       snippet = $doc.snippet
+      content = $doc.content
       category = $doc.category
     }
 
@@ -51,17 +66,20 @@ function Submit-Documents {
   }
 
   $payload = @{ value = $uploadDocs } | ConvertTo-Json -Depth 12
+  $tempPayloadPath = [System.IO.Path]::GetTempFileName()
 
   Write-Host "Uploading $($uploadDocs.Count) document(s) to '$IndexName'..." -ForegroundColor Cyan
 
-  az rest --method post `
-    --uri "$endpoint/indexes/$IndexName/docs/index`?api-version=$ApiVersion" `
-    --headers "Content-Type=application/json" `
-    --body $payload `
-    --resource "https://search.azure.com"
+  try {
+    Set-Content -Path $tempPayloadPath -Value $payload -Encoding utf8
 
-  if ($LASTEXITCODE -ne 0) {
-    throw "Upload failed for index '$IndexName'"
+    Invoke-RestMethod -Method Post `
+      -Uri "$endpoint/indexes/$IndexName/docs/index`?api-version=$ApiVersion" `
+      -Headers $headers `
+      -InFile $tempPayloadPath | Out-Null
+  }
+  finally {
+    Remove-Item -Path $tempPayloadPath -ErrorAction SilentlyContinue
   }
 }
 

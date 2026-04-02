@@ -13,6 +13,8 @@ namespace SecureRagChat.Services;
 
 public sealed class AgenticRetrievalService : IAgenticRetrievalService
 {
+    private const string FallbackOutputMode = "answerSynthesis";
+
     private static readonly TokenRequestContext SearchTokenContext =
         new(["https://search.azure.com/.default"]);
 
@@ -64,6 +66,7 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
             _logger.LogDebug("Agentic retrieval is using Azure RBAC authentication.");
         }
 
+        var configuredOutputMode = NormalizeOutputMode(_options.OutputMode);
         var requestBody = new AgenticRetrievalRequest
         {
             Messages =
@@ -78,7 +81,7 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
             {
                 Kind = _options.RetrievalReasoningEffort
             },
-            OutputMode = _options.OutputMode,
+            OutputMode = configuredOutputMode,
             IncludeActivity = _options.IncludeActivity,
             MaxOutputSize = _options.MaxOutputSize,
             MaxRuntimeInSeconds = _options.MaxRuntimeInSeconds
@@ -90,6 +93,31 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
         request.Content = new StringContent(requestPayload, Encoding.UTF8, "application/json");
 
         using var response = await client.SendAsync(request, ct);
+
+        if (!response.IsSuccessStatusCode &&
+            string.Equals(configuredOutputMode, "extractedData", StringComparison.OrdinalIgnoreCase))
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(ct);
+            if (MentionsInvalidOutputMode(errorBody, configuredOutputMode))
+            {
+                _logger.LogWarning(
+                    "Knowledge base retrieve rejected outputMode '{OutputMode}'. Retrying with '{FallbackOutputMode}'.",
+                    configuredOutputMode,
+                    FallbackOutputMode);
+
+                return await RetryWithOutputModeAsync(
+                    client,
+                    requestUrl,
+                    query,
+                    plane,
+                    configuredOutputMode,
+                    FallbackOutputMode,
+                    ct);
+            }
+
+            _logger.LogError("Knowledge base retrieve returned {StatusCode}: {Body}", (int)response.StatusCode, errorBody);
+            throw new HttpRequestException($"Knowledge base retrieve returned {(int)response.StatusCode}");
+        }
 
         if (response.StatusCode is not HttpStatusCode.OK and not HttpStatusCode.PartialContent)
         {
@@ -121,6 +149,106 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
             Source = RetrievalSource.KnowledgeBase,
             Citations = citations
         };
+    }
+
+    private async Task<RetrievalResult> RetryWithOutputModeAsync(
+        HttpClient client,
+        string requestUrl,
+        string query,
+        RetrievalPlane plane,
+        string originalOutputMode,
+        string retryOutputMode,
+        CancellationToken ct)
+    {
+        using var retryRequest = new HttpRequestMessage(HttpMethod.Post, requestUrl);
+
+        if (!string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            retryRequest.Headers.Add("api-key", _options.ApiKey);
+        }
+        else
+        {
+            var serviceToken = await _credential.GetTokenAsync(SearchTokenContext, ct);
+            retryRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", serviceToken.Token);
+        }
+
+        var retryBody = new AgenticRetrievalRequest
+        {
+            Messages =
+            [
+                new AgenticMessage
+                {
+                    Role = "user",
+                    Content = [new AgenticMessageContent { Type = "text", Text = query }]
+                }
+            ],
+            RetrievalReasoningEffort = new AgenticReasoningEffort
+            {
+                Kind = _options.RetrievalReasoningEffort
+            },
+            OutputMode = retryOutputMode,
+            IncludeActivity = _options.IncludeActivity,
+            MaxOutputSize = _options.MaxOutputSize,
+            MaxRuntimeInSeconds = _options.MaxRuntimeInSeconds
+        };
+
+        retryRequest.Content = new StringContent(
+            JsonSerializer.Serialize(retryBody, AgenticSerializerContext.Default.AgenticRetrievalRequest),
+            Encoding.UTF8,
+            "application/json");
+
+        using var retryResponse = await client.SendAsync(retryRequest, ct);
+        if (retryResponse.StatusCode is not HttpStatusCode.OK and not HttpStatusCode.PartialContent)
+        {
+            var retryErrorBody = await retryResponse.Content.ReadAsStringAsync(ct);
+            _logger.LogError(
+                "Knowledge base retrieve retry returned {StatusCode}. OriginalOutputMode={OriginalOutputMode}, RetryOutputMode={RetryOutputMode}, Body={Body}",
+                (int)retryResponse.StatusCode,
+                originalOutputMode,
+                retryOutputMode,
+                retryErrorBody);
+            throw new HttpRequestException($"Knowledge base retrieve returned {(int)retryResponse.StatusCode}");
+        }
+
+        var retryResponseStream = await retryResponse.Content.ReadAsStreamAsync(ct);
+        var apiResponse = await JsonSerializer.DeserializeAsync(
+            retryResponseStream,
+            AgenticSerializerContext.Default.AgenticRetrievalResponse,
+            ct);
+
+        var chunks = ExtractChunks(apiResponse);
+        var citations = ExtractCitations(apiResponse, chunks);
+
+        LogActivity(apiResponse);
+        _logger.LogInformation(
+            "Agentic retrieval completed after output mode fallback. KnowledgeBase={KnowledgeBase}, ChunkCount={ChunkCount}, CitationCount={CitationCount}",
+            _options.KnowledgeBaseName,
+            chunks.Length,
+            citations.Length);
+
+        return new RetrievalResult
+        {
+            Chunks = chunks,
+            Plane = plane,
+            Source = RetrievalSource.KnowledgeBase,
+            Citations = citations
+        };
+    }
+
+    private static string NormalizeOutputMode(string? outputMode)
+    {
+        return string.IsNullOrWhiteSpace(outputMode) ? FallbackOutputMode : outputMode.Trim();
+    }
+
+    private static bool MentionsInvalidOutputMode(string errorBody, string outputMode)
+    {
+        if (string.IsNullOrWhiteSpace(errorBody))
+        {
+            return false;
+        }
+
+        return errorBody.Contains("Requested value", StringComparison.OrdinalIgnoreCase)
+            && errorBody.Contains(outputMode, StringComparison.OrdinalIgnoreCase);
     }
 
     private void LogActivity(AgenticRetrievalResponse? apiResponse)

@@ -1,5 +1,6 @@
 using Azure.Core;
 using Azure.Identity;
+using Microsoft.Extensions.Configuration;
 
 namespace SecureRagChat.Auth;
 
@@ -8,11 +9,22 @@ public sealed class DevelopmentAzureCliUserTokenProvider : IDevelopmentUserToken
     private static readonly TokenRequestContext SearchTokenContext =
         new(["https://search.azure.com/.default"]);
 
-    private readonly AzureCliCredential _credential = new();
+    private readonly AzureCliCredential _credential;
     private readonly ILogger<DevelopmentAzureCliUserTokenProvider> _logger;
 
-    public DevelopmentAzureCliUserTokenProvider(ILogger<DevelopmentAzureCliUserTokenProvider> logger)
+    public DevelopmentAzureCliUserTokenProvider(
+        IConfiguration configuration,
+        ILogger<DevelopmentAzureCliUserTokenProvider> logger)
     {
+        var tenantId = configuration["AzureAd:TenantId"];
+        var credentialOptions = new AzureCliCredentialOptions();
+
+        if (!string.IsNullOrWhiteSpace(tenantId))
+        {
+            credentialOptions.TenantId = tenantId;
+        }
+
+        _credential = new AzureCliCredential(credentialOptions);
         _logger = logger;
     }
 

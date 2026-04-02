@@ -235,8 +235,9 @@ This repository now includes repeatable assets for the Traditional vs Agentic re
 - `scripts/create-search-indexes.ps1` - creates `public-index` and `entitled-index`
 - `scripts/seed-search-docs.ps1` - uploads curated demo documents
 - `scripts/bootstrap-local-config.ps1` - sets backend user-secrets and prints frontend env values
-- `demo-data/public-documents.json` - guest-safe documents
-- `demo-data/entitled-documents.json` - protected documents for entitlement scenarios
+- `demo-data/public-documents.json` - guest-safe product and solution discovery documents
+- `demo-data/entitled-documents.json` - protected manuals, detail sheets, and runbooks for entitlement scenarios
+- `demo-data/knowledge-base/` - richer source documents for Azure AI Search Knowledge Base ingestion
 - `DEMO_SETUP.md` - end-to-end runbook for provisioning and rehearsal
 
 ## Future Improvements

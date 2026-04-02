@@ -12,6 +12,29 @@ import { RetrievalDetailsPanel } from './components/RetrievalDetailsPanel';
 import type { RetrievalMode, TranscriptEntry } from './types';
 import './App.css';
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() ?? '';
+
+function resolveCitationUrl(url: string): string {
+  if (!url.startsWith('/')) {
+    return url;
+  }
+
+  if (!apiBaseUrl) {
+    return url;
+  }
+
+  return `${apiBaseUrl.replace(/\/$/, '')}${url}`;
+}
+
+function withDemoAuthHint(url: string, mode: 'anonymous' | 'authenticated'): string {
+  if (mode !== 'authenticated') {
+    return url;
+  }
+
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}demoAuth=1`;
+}
+
 function App() {
   const [mode, setMode] = useState<'anonymous' | 'authenticated'>('anonymous');
   const [retrievalMode, setRetrievalMode] = useState<RetrievalMode>('Traditional');
@@ -246,7 +269,7 @@ function App() {
                                       <div>
                                         <strong>{citation.title}</strong>
                                         {citation.url ? (
-                                          <a href={citation.url} rel="noreferrer" target="_blank">
+                                          <a href={withDemoAuthHint(resolveCitationUrl(citation.url), entry.mode)} rel="noreferrer" target="_blank">
                                             {citation.url}
                                           </a>
                                         ) : null}

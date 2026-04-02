@@ -1,0 +1,25 @@
+{
+  "name": "kb-secure-rag-demo",
+  "description": "Knowledge base for the SecureRagChat telecom demo across public and protected product and architecture documents.",
+  "knowledgeSources": [
+    {
+      "name": "ks-secure-rag-demo"
+    }
+  ],
+  "models": [
+    {
+      "kind": "azureOpenAI",
+      "azureOpenAIParameters": {
+        "resourceUri": "https://foundry-agents-kapeltol.openai.azure.com",
+        "apiKey": "<YOUR_AZURE_OPENAI_API_KEY>",
+        "deploymentId": "gpt-4o-mini",
+        "modelName": "gpt-4o-mini"
+      }
+    }
+  ],
+  "retrievalInstructions": "Use this knowledge base for questions about telecom products, private 5G deployments, packet core design, lifecycle services, and radio access planning in the SecureRagChat demo corpus. Prefer the uploaded markdown source over assumptions.",
+  "retrievalReasoningEffort": {
+    "kind": "low"
+  },
+  "outputMode": "answerSynthesis"
+}

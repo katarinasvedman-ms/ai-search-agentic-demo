@@ -1,30 +1,98 @@
 [
   {
     "id": "pub-001",
-    "title": "Premium Agreement Overview",
-    "url": "https://demo.contoso.com/public/premium-overview",
-    "category": "agreements",
-    "snippet": "Premium agreements include priority support, enhanced SLAs, and optional commercial add-ons. Exact negotiated pricing terms are available only in customer-specific agreements."
+    "title": "Aurora RAN 6651 Macro Radio Overview",
+    "url": "/api/demo-docs/pub-001",
+    "category": "radio-access",
+    "snippet": "Aurora RAN 6651 is a macro radio for high-capacity mid-band coverage in dense urban and suburban deployments. Public product pages cover footprint, power class, and deployment scenarios, while detailed commissioning steps and hardware limits stay in the customer portal.",
+    "content": "Aurora RAN 6651 is designed for operators modernizing outdoor 5G coverage where site footprint, transport simplicity, and mid-band capacity are primary design drivers. The platform fits rooftop and pole deployments and is intended for suburban overlays, dense urban refreshes, and broad capacity expansion programs.\n\nPublic positioning focuses on deployment scenarios, coverage goals, and radio modernization outcomes. Detailed installation limits, supported band combinations, and field acceptance procedures are handled in protected technical documents rather than on the public product page."
   },
   {
     "id": "pub-002",
-    "title": "General Liability Policy Summary",
-    "url": "https://demo.contoso.com/public/liability-summary",
-    "category": "legal",
-    "snippet": "The standard agreement includes general liability limitations and service credits for qualifying incidents. Specific caps and carve-outs vary by signed customer contract."
+    "title": "Nimbus Indoor 2400 Small Cell Portfolio",
+    "url": "/api/demo-docs/pub-002",
+    "category": "indoor-coverage",
+    "snippet": "Nimbus Indoor 2400 extends 5G coverage for offices, hospitals, and transit hubs with centralized management and compact wall or ceiling mounting. Public material highlights form factor and venue fit, but the RF tuning guide and floor-by-floor planning templates require sign-in.",
+    "content": "Nimbus Indoor 2400 addresses indoor mobility and coverage shaping in environments where outdoor macro layers are insufficient. Common target venues include office towers, hospitals, transit hubs, logistics corridors, and public venues that need predictable indoor handoff behavior.\n\nThe public portfolio view explains form factor, centralized operations, and venue fit. Detailed zoning patterns, tuning practices, and controller domain limits are kept in authenticated engineering references so the public site stays product-led rather than operations-heavy."
   },
   {
     "id": "pub-003",
-    "title": "Support Tiers Overview",
-    "url": "https://demo.contoso.com/public/support-tiers",
-    "category": "support",
-    "snippet": "Support is offered in Standard, Advanced, and Premium tiers. Premium provides 24x7 response and named escalation management."
+    "title": "WaveSync 8600 Fronthaul and Transport Highlights",
+    "url": "/api/demo-docs/pub-003",
+    "category": "transport",
+    "snippet": "WaveSync 8600 provides aggregation, timing, and fronthaul transport for open and purpose-built radio sites. Public pages describe synchronization support and weatherized deployment options, while optics compatibility and alarm handling are protected documents.",
+    "content": "WaveSync 8600 is positioned as a transport and timing layer for radio aggregation, fronthaul resiliency, and synchronization assurance. It supports operators building outdoor clusters, mixed site environments, and timing-sensitive access deployments.\n\nPublic documentation emphasizes synchronization support, deployment flexibility, and transport stabilization. Detailed optics qualification, alarm behavior, and holdover operating guidance are reserved for authenticated operations and engineering teams."
   },
   {
     "id": "pub-004",
-    "title": "Pricing FAQ",
-    "url": "https://demo.contoso.com/public/pricing-faq",
-    "category": "pricing",
-    "snippet": "Pricing is determined by workload profile, committed volume, and contract duration. Public pages intentionally omit confidential discount schedules."
+    "title": "CoreSphere Packet Core Automation Summary",
+    "url": "/api/demo-docs/pub-004",
+    "category": "core-network",
+    "snippet": "CoreSphere automates packet core lifecycle operations for distributed and centralized 5G deployments. Public content explains topology choices, automation goals, and scaling patterns, but upgrade runbooks and rollback checkpoints are restricted to authenticated users.",
+    "content": "CoreSphere is a packet core platform for centralized and distributed 5G topologies. The public solution summary focuses on automation, orchestration, and lifecycle efficiency across regional and edge environments where operators need predictable scale and simplified change control.\n\nPublic architecture material covers design patterns and operational goals, while maintenance sequencing, smoke tests, and rollback procedures live in protected runbooks used by delivery and operations teams."
+  },
+  {
+    "id": "pub-005",
+    "title": "Private 5G Manufacturing Solution Brief",
+    "url": "/api/demo-docs/pub-005",
+    "category": "private-5g",
+    "snippet": "This solution brief outlines how private 5G supports machine vision, guided vehicles, and deterministic operations in manufacturing sites. Public content covers business outcomes and reference architecture layers, but site survey data, spectrum assumptions, and deployment blueprints stay behind login.",
+    "content": "The manufacturing solution brief explains how private 5G supports machine vision, guided vehicles, low-latency control loops, and mobility in production environments. It frames the business case around reliability, real-time operations, and a layered architecture spanning access, transport, and core.\n\nThe public brief intentionally stays at the architecture and outcome level. Shop-floor survey assumptions, cutover sequencing, and deployment readiness details are maintained in authenticated blueprint material."
+  },
+  {
+    "id": "pub-006",
+    "title": "Lifecycle Services for Radio and Transport Networks",
+    "url": "/api/demo-docs/pub-006",
+    "category": "services",
+    "snippet": "Lifecycle Services packages onboarding, software maintenance, and operational readiness for radio, transport, and core domains. Public information describes service tiers and outcomes, while incident workflows, escalation paths, and named support commitments remain protected.",
+    "content": "Lifecycle Services packages onboarding, software maintenance, and operational readiness across radio, transport, and core domains. The public services narrative focuses on reduced operational risk, coordinated modernization, and clearer change windows for complex network estates.\n\nNamed escalation ownership, response models, and support workflows are intentionally left out of the public view. Those commitments are part of the authenticated service material used in delivery and support engagements."
+  },
+  {
+    "id": "pub-007",
+    "title": "Aurora RAN 6651 Energy Efficiency Highlights",
+    "url": "/api/demo-docs/pub-007",
+    "category": "radio-access",
+    "snippet": "This public brief explains how Aurora RAN 6651 reduces site power consumption through dynamic sleep states, compact radio design, and simplified modernization paths. Detailed power tuning profiles and regional operating limits are available only to authenticated users.",
+    "content": "Aurora RAN 6651 energy positioning centers on lower site power consumption, modernization without major footprint growth, and operational efficiency during daily traffic variation. The brief describes dynamic sleep behavior, compact deployment patterns, and the value of reduced site complexity.\n\nPower tuning envelopes and environmental operating restrictions are not published publicly because they depend on authenticated technical guidance and supported operating profiles."
+  },
+  {
+    "id": "pub-008",
+    "title": "Nimbus Indoor 2400 for Stadium and Transit Venues",
+    "url": "/api/demo-docs/pub-008",
+    "category": "indoor-coverage",
+    "snippet": "Nimbus Indoor 2400 supports high-density indoor mobility for stadium concourses, rail terminals, and large event spaces. Public material highlights capacity goals and installation flexibility, while sector zoning templates and RF tuning instructions stay behind sign-in.",
+    "content": "Nimbus Indoor 2400 is presented for high-density indoor venues where crowd movement, repeated event peaks, and indoor mobility control are more important than broad outdoor sector coverage. Example environments include stadium concourses, rail terminals, and event-heavy public venues.\n\nThe public solution page describes capacity intent and flexible installation options. Coverage zoning workbooks and tuning instructions are restricted because they belong to the detailed engineering process rather than public marketing."
+  },
+  {
+    "id": "pub-009",
+    "title": "WaveSync 8600 Timing Assurance Overview",
+    "url": "/api/demo-docs/pub-009",
+    "category": "transport",
+    "snippet": "WaveSync 8600 helps stabilize timing and transport for distributed radio networks, with support for synchronization resiliency and weatherized deployment profiles. Public documentation covers the high-level timing story, while detailed alarm thresholds and holdover guidance are protected.",
+    "content": "This overview explains why timing assurance matters in distributed radio networks and how WaveSync 8600 supports synchronization resilience in mixed deployment environments. The public story focuses on reliability, weatherized deployment, and timing continuity as an operator outcome.\n\nAlarm thresholds, holdover guidance, and fault-specific corrective actions are left to authenticated transport operations material, where teams need exact operating detail rather than summarized value statements."
+  },
+  {
+    "id": "pub-010",
+    "title": "CoreSphere Distributed Packet Core Reference Architecture",
+    "url": "/api/demo-docs/pub-010",
+    "category": "core-network",
+    "snippet": "This reference architecture shows how CoreSphere supports distributed packet core topologies across regional data centers and edge locations. Public content explains orchestration patterns and scale-out behavior, while upgrade runbooks and rollback checkpoints remain portal-only content.",
+    "content": "The distributed CoreSphere reference architecture maps packet core roles across regional and edge environments and explains when operators favor distributed user plane patterns over more centralized models. It is written as an architecture guide rather than an operations manual.\n\nThe public material is meant to help customers understand topology choices and scale-out behavior. Detailed maintenance controls, smoke tests, and rollback checkpoints are part of protected operational guidance."
+  },
+  {
+    "id": "pub-011",
+    "title": "Connected Energy Sites Private 5G Brief",
+    "url": "/api/demo-docs/pub-011",
+    "category": "private-5g",
+    "snippet": "The energy sites brief describes how private 5G can support substations, remote switching yards, and field-service connectivity. Public pages cover business outcomes and target workflows, while resilient backhaul zoning and device onboarding policies require authenticated access.",
+    "content": "The connected energy sites brief shows how private 5G supports substation operations, switching yard visibility, and secure field-service connectivity in distributed utility environments. It frames the solution around resilience, mobility, and site operational safety.\n\nBackhaul zoning models, onboarding rules, and site readiness details are treated as protected delivery material because they depend on network, spectrum, and operational constraints that are not part of the public story."
+  },
+  {
+    "id": "pub-012",
+    "title": "Software Maintenance and Modernization Services",
+    "url": "/api/demo-docs/pub-012",
+    "category": "services",
+    "snippet": "Software Maintenance and Modernization Services help operators plan upgrades, reduce operational risk, and coordinate radio, transport, and core refresh cycles. Public descriptions explain scope and outcomes, but service escalation matrices and named support workflows remain protected.",
+    "content": "Software Maintenance and Modernization Services are presented as a structured way to coordinate upgrade planning across access, transport, and core layers. The public description emphasizes lower change risk, better scheduling discipline, and clearer modernization outcomes for operators.\n\nEscalation ownership and incident coordination are not part of the public service description. Those details are exposed only through authenticated service artifacts for customers with active support relationships."
   }
 ]

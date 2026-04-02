@@ -43,7 +43,9 @@ public sealed class AzureSearchRetrievalService : IRetrievalService
 
         using var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
 
-        if (!string.IsNullOrWhiteSpace(_options.ApiKey))
+        var requiresUserTokenPassThrough = userToken is not null;
+
+        if (!requiresUserTokenPassThrough && !string.IsNullOrWhiteSpace(_options.ApiKey))
         {
             request.Headers.Add("api-key", _options.ApiKey);
             _logger.LogDebug("Using Azure AI Search API key authentication for local retrieval.");
@@ -52,11 +54,15 @@ public sealed class AzureSearchRetrievalService : IRetrievalService
         {
             var serviceToken = await _credential.GetTokenAsync(SearchTokenContext, ct);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", serviceToken.Token);
+            if (requiresUserTokenPassThrough)
+            {
+                _logger.LogDebug("Using Azure RBAC service token because user token pass-through is enabled.");
+            }
         }
 
         if (userToken is not null)
         {
-            request.Headers.Add("x-ms-query-source-authorization", $"Bearer {userToken}");
+            request.Headers.Add("x-ms-query-source-authorization", userToken);
             _logger.LogDebug("Added x-ms-query-source-authorization header for entitled retrieval");
         }
 
@@ -64,7 +70,7 @@ public sealed class AzureSearchRetrievalService : IRetrievalService
         {
             Search = query,
             Top = 10,
-            Select = "id,title,url,snippet"
+            Select = "id,title,url,snippet,content"
         };
 
         var requestPayload = JsonSerializer.Serialize(searchBody, SearchSerializerContext.Default.SearchRequest);
@@ -101,7 +107,8 @@ public sealed class AzureSearchRetrievalService : IRetrievalService
                 Id = v.Id ?? "",
                 Title = v.Title ?? "",
                 Url = v.Url,
-                Snippet = v.Snippet ?? ""
+                Snippet = v.Snippet ?? "",
+                Content = v.Content
             })
             .ToArray() ?? [];
 
@@ -149,6 +156,9 @@ internal sealed class SearchResultItem
 
     [JsonPropertyName("snippet")]
     public string? Snippet { get; set; }
+
+    [JsonPropertyName("content")]
+    public string? Content { get; set; }
 }
 
 [JsonSerializable(typeof(SearchRequest))]
