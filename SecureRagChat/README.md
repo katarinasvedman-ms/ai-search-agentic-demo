@@ -1,6 +1,11 @@
 # SecureRagChat — Secure RAG/Chat Backend with Per-User Authorization
 
-ASP.NET Core backend that implements a secure Retrieval-Augmented Generation (RAG) pipeline with per-user authorization enforced at the Azure AI Search layer. Anonymous users can fall back to Bing-backed public retrieval when curated public Azure AI Search content is unavailable.
+ASP.NET Core backend that implements a secure Retrieval-Augmented Generation (RAG) pipeline with per-user authorization enforced at the Azure AI Search layer. It supports two retrieval modes:
+
+- `Traditional`: explicit Azure AI Search index queries (public or entitled) with optional Bing fallback for anonymous requests.
+- `Agentic`: Azure AI Search Knowledge Base retrieval via a single retrieve call.
+
+Anonymous users can fall back to Bing-backed public retrieval when curated public Azure AI Search content is unavailable.
 
 ## Architecture
 
@@ -55,6 +60,17 @@ The model **never** sees unauthorized data. Authorization is enforced by Azure A
 7. Retrieved chunks (already filtered by Search) are passed to Azure OpenAI Responses API
 8. Grounded answer returned with citations
 
+### Agentic Flow
+
+1. Client sends `POST /api/chat` with `"mode": "Agentic"`
+2. Orchestrator still determines retrieval plane (`Public` or `Entitled`) from auth context
+3. `AgenticRetrievalService` issues one Knowledge Base retrieve call
+4. Retrieved chunks and references are normalized into the existing retrieval contract
+5. Chunks are passed to Azure OpenAI Responses API for final answer generation
+
+> Note: Traditional mode remains the per-user security trimming proof because it explicitly passes
+> `x-ms-query-source-authorization`. Agentic mode demonstrates platform-managed retrieval orchestration.
+
 ## Why authorization is enforced in Search, not by the model
 
 - **LLMs cannot enforce access control.** If sensitive data reaches the model's context, it may leak into the response regardless of prompt instructions.
@@ -105,9 +121,14 @@ This header is **only** added for authenticated users. Anonymous users never hav
 {
   "query": "What are our Q4 revenue numbers?",
   "conversationId": "optional-id",
-  "preferEntitledContent": true
+  "preferEntitledContent": true,
+  "mode": "Traditional"
 }
 ```
+
+`mode` values:
+- `Traditional` (default when omitted)
+- `Agentic`
 
 **Response:**
 ```json
@@ -120,6 +141,7 @@ This header is **only** added for authenticated users. Anonymous users never hav
   "diagnostics": {
     "chunkCount": 5,
     "isAuthenticated": true,
+    "retrievalMode": "Traditional",
     "retrievalSource": "AzureSearch"
   }
 }
@@ -141,6 +163,10 @@ Update `appsettings.json` with your Azure resource details:
 | `AzureSearch` | `Endpoint` | Search service URL |
 | `AzureSearch` | `PublicIndex` | Index for anonymous users |
 | `AzureSearch` | `EntitledIndex` | Index with per-user ACLs |
+| `AzureSearch` | `UseLoggedInDeveloperIdentityForUserToken` | Enables local dev fallback to Azure CLI user token |
+| `AgenticRetrieval` | `Endpoint` | Search service URL for Knowledge Base retrieve API |
+| `AgenticRetrieval` | `KnowledgeBaseName` | Knowledge Base name for `mode=Agentic` |
+| `AgenticRetrieval` | `ApiVersion` | KB retrieve API version (default `2025-11-01-preview`) |
 | `BingSearch` | `Enabled` | Enables anonymous Bing fallback |
 | `BingSearch` | `Endpoint` | Bing Web Search endpoint |
 | `BingSearch` | `ApiKey` | Bing API key |
@@ -158,6 +184,11 @@ Update `appsettings.json` with your Azure resource details:
   - **Entitled index**: Contains content with document-level security fields (e.g., `authorized_users`, `authorized_groups`)
 - Configure security trimming on the entitled index
 - Grant the app's managed identity the **Search Index Data Reader** role
+
+### 1b. Azure AI Search Agentic Retrieval
+- Create a Knowledge Source and Knowledge Base in the same Search service
+- Set `AgenticRetrieval:KnowledgeBaseName` to that KB name
+- Ensure the backend identity can call the KB retrieve endpoint
 
 ### 2. Entra ID (Azure AD)
 - Register an app for this API (used as `ClientId`/`Audience`)
@@ -228,24 +259,28 @@ SecureRagChat/
 │   └── ChatOrchestrator.cs         # Deterministic RAG orchestration pipeline
 ├── Services/
 │   ├── IRetrievalService.cs        # Retrieval interface
+│   ├── IAgenticRetrievalService.cs # Agentic retrieval interface
 │   ├── IBingRetrievalService.cs    # Bing retrieval interface
 │   ├── AzureSearchRetrievalService.cs  # Azure AI Search with per-user headers
+│   ├── AgenticRetrievalService.cs  # Azure AI Search Knowledge Base retrieval
 │   ├── BingRetrievalService.cs     # Bing Web Search fallback for anonymous users
 │   ├── IResponsesApiService.cs     # Generation interface
 │   └── ResponsesApiService.cs      # Azure OpenAI Responses API client
 ├── Models/
 │   ├── ChatRequest.cs              # API request DTO
 │   ├── ChatResponse.cs             # API response DTO + diagnostics
+│   ├── RetrievalMode.cs            # Traditional | Agentic enum
 │   ├── RetrievedChunk.cs           # Search result chunk
 │   ├── RetrievalResult.cs          # Retrieval result with metadata
 │   ├── RetrievalPlane.cs           # Public | Entitled enum
-│   ├── RetrievalSource.cs          # AzureSearch | Bing enum
+│   ├── RetrievalSource.cs          # AzureSearch | Bing | KnowledgeBase enum
 │   ├── Citation.cs                 # Citation model
 │   └── GenerationResult.cs         # LLM response model
 ├── Auth/
 │   └── UserTokenAccessor.cs        # Extracts user bearer token from HttpContext
 ├── Configuration/
 │   ├── AzureSearchOptions.cs       # Search config options
+│   ├── AgenticRetrievalOptions.cs  # Knowledge Base retrieval config options
 │   ├── BingSearchOptions.cs        # Bing config options
 │   └── AzureOpenAIOptions.cs       # OpenAI config options
 ├── Program.cs                      # DI, auth, middleware setup
