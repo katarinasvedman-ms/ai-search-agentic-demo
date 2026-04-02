@@ -8,18 +8,9 @@ import {
   signInWithMicrosoft,
   signOutMicrosoft,
 } from './auth/msalClient';
-import type { ChatResponse, RetrievalMode, TranscriptEntry } from './types';
+import { RetrievalDetailsPanel } from './components/RetrievalDetailsPanel';
+import type { RetrievalMode, TranscriptEntry } from './types';
 import './App.css';
-
-function formatSourceLabel(response: ChatResponse): string {
-  if (response.retrievalPlane === 'Entitled') {
-    return 'Entitled Azure AI Search';
-  }
-
-  return response.diagnostics.retrievalSource === 'Bing'
-    ? 'Anonymous Bing fallback'
-    : 'Public Azure AI Search';
-}
 
 function App() {
   const [mode, setMode] = useState<'anonymous' | 'authenticated'>('anonymous');
@@ -103,6 +94,7 @@ function App() {
         id: entryId,
         query: trimmedQuery,
         mode: runtimeMode,
+        retrievalMode: runtimeRetrievalMode,
         submittedAt: new Date().toISOString(),
         isLoading: true,
       },
@@ -224,56 +216,50 @@ function App() {
                         Retrieving authorized context and generating a grounded answer...
                       </div>
                     ) : entry.error ? (
-                      <div className="error-state">{entry.error}</div>
+                      <div className="response-layout">
+                        <div className="error-state">{entry.error}</div>
+                        <RetrievalDetailsPanel
+                          requestedMode={entry.retrievalMode}
+                          requesterMode={entry.mode}
+                          errorMessage={entry.error}
+                        />
+                      </div>
                     ) : entry.response ? (
                       <>
-                        <div className="answer-block">
-                          <p>{entry.response.answer}</p>
-                        </div>
+                        <div className="response-layout">
+                          <div>
+                            <div className="answer-block">
+                              <p>{entry.response.answer}</p>
+                            </div>
 
-                        <div className="diagnostics-grid">
-                          <div>
-                            <span className="diagnostic-label">Retrieval plane</span>
-                            <strong>{entry.response.retrievalPlane}</strong>
+                            <div className="citation-block">
+                              {entry.response.citations.length === 0 ? (
+                                <p className="citation-empty">No citations were returned for this answer.</p>
+                              ) : (
+                                <ul className="citation-list">
+                                  {entry.response.citations.map((citation) => (
+                                    <li key={`${entry.id}-${citation.sourceIndex}`}>
+                                      <span className="citation-index">[{citation.sourceIndex}]</span>
+                                      <div>
+                                        <strong>{citation.title}</strong>
+                                        {citation.url ? (
+                                          <a href={citation.url} rel="noreferrer" target="_blank">
+                                            {citation.url}
+                                          </a>
+                                        ) : null}
+                                      </div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <span className="diagnostic-label">Retrieval source</span>
-                            <strong>{formatSourceLabel(entry.response)}</strong>
-                          </div>
-                          <div>
-                            <span className="diagnostic-label">Retrieval mode</span>
-                            <strong>{entry.response.diagnostics.retrievalMode}</strong>
-                          </div>
-                          <div>
-                            <span className="diagnostic-label">Chunk count</span>
-                            <strong>{entry.response.diagnostics.chunkCount}</strong>
-                          </div>
-                          <div>
-                            <span className="diagnostic-label">Authenticated</span>
-                            <strong>{entry.response.diagnostics.isAuthenticated ? 'Yes' : 'No'}</strong>
-                          </div>
-                        </div>
 
-                        <div className="citation-block">
-                          {entry.response.citations.length === 0 ? (
-                            <p className="citation-empty">No citations were returned for this answer.</p>
-                          ) : (
-                            <ul className="citation-list">
-                              {entry.response.citations.map((citation) => (
-                                <li key={`${entry.id}-${citation.sourceIndex}`}>
-                                  <span className="citation-index">[{citation.sourceIndex}]</span>
-                                  <div>
-                                    <strong>{citation.title}</strong>
-                                    {citation.url ? (
-                                      <a href={citation.url} rel="noreferrer" target="_blank">
-                                        {citation.url}
-                                      </a>
-                                    ) : null}
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
+                          <RetrievalDetailsPanel
+                            response={entry.response}
+                            requestedMode={entry.retrievalMode}
+                            requesterMode={entry.mode}
+                          />
                         </div>
                       </>
                     ) : null}

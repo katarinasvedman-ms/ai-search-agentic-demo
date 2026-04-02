@@ -22,11 +22,23 @@ export interface ChatDiagnostics {
   retrievalSource: RetrievalSource;
 }
 
+export interface RetrievalDetails {
+  mode: 'traditional' | 'agentic';
+  retrievalStyle?: string;
+  query?: string;
+  filters?: string;
+  resultsCount?: number;
+  authorization?: string;
+  knowledgeBaseUsed?: boolean;
+  queryConstruction?: string;
+}
+
 export interface ChatResponse {
   answer: string;
   retrievalPlane: RetrievalPlane;
   citations: Citation[];
   diagnostics: ChatDiagnostics;
+  retrievalDetails?: RetrievalDetails;
 }
 
 export interface ApiErrorPayload {
@@ -42,6 +54,7 @@ export interface ChatResult {
 export interface TranscriptEntry {
   id: string;
   query: string;
+  retrievalMode: RetrievalMode;
   response?: ChatResponse;
   correlationId?: string;
   mode: 'anonymous' | 'authenticated';

@@ -10,6 +10,23 @@ function buildUrl(path: string): string {
   return `${apiBaseUrl.replace(/\/$/, '')}${path}`;
 }
 
+function normalizeChatResult(data: ChatResult['data']): ChatResult['data'] {
+  const mode = data.retrievalDetails?.mode;
+  if (!mode) {
+    return data;
+  }
+
+  const normalizedMode = mode.toLowerCase() === 'agentic' ? 'agentic' : 'traditional';
+
+  return {
+    ...data,
+    retrievalDetails: {
+      ...data.retrievalDetails,
+      mode: normalizedMode,
+    },
+  };
+}
+
 export async function sendChatRequest(
   request: ChatRequest,
   token?: string,
@@ -27,17 +44,35 @@ export async function sendChatRequest(
   });
 
   const responseCorrelationId = response.headers.get('X-Correlation-Id') ?? correlationId;
-  const payload = (await response.json()) as ChatResult['data'] | ApiErrorPayload;
+  const rawPayload = await response.text();
+
+  let payload: ChatResult['data'] | ApiErrorPayload | null = null;
+  if (rawPayload.trim().length > 0) {
+    try {
+      payload = JSON.parse(rawPayload) as ChatResult['data'] | ApiErrorPayload;
+    } catch {
+      throw new Error(
+        `Received an invalid response from the API (Correlation ID: ${responseCorrelationId})`,
+      );
+    }
+  }
 
   if (!response.ok) {
-    const errorPayload = payload as ApiErrorPayload;
+    const errorPayload = payload as ApiErrorPayload | null;
+    const errorText = errorPayload?.error || `Request failed with status ${response.status}`;
+    const errorCorrelationId = errorPayload?.correlationId ?? responseCorrelationId;
+
     throw new Error(
-      `${errorPayload.error || 'Request failed'} (Correlation ID: ${errorPayload.correlationId ?? responseCorrelationId})`,
+      `${errorText} (Correlation ID: ${errorCorrelationId})`,
     );
   }
 
+  if (!payload) {
+    throw new Error(`Received an empty response from the API (Correlation ID: ${responseCorrelationId})`);
+  }
+
   return {
-    data: payload as ChatResult['data'],
+    data: normalizeChatResult(payload as ChatResult['data']),
     correlationId: responseCorrelationId,
   };
 }
