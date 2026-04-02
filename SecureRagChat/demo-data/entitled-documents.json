@@ -1,0 +1,54 @@
+[
+  {
+    "id": "ent-001",
+    "title": "Premium Agreement Pricing Terms",
+    "url": "https://demo.contoso.com/internal/premium-pricing-terms",
+    "category": "pricing",
+    "snippet": "Premium agreement base fee is 120000 USD annually with a 12 percent volume discount above 5 million monthly requests and a 3-year renewal option at fixed uplift.",
+    "authorizedUsers": [
+      "alice@contoso.com"
+    ],
+    "authorizedGroups": [
+      "premium-contract-reviewers"
+    ]
+  },
+  {
+    "id": "ent-002",
+    "title": "Contoso Liability Addendum",
+    "url": "https://demo.contoso.com/internal/contoso-liability-addendum",
+    "category": "legal",
+    "snippet": "Contoso agreement liability cap is 2 times annual contract value with explicit exclusion for indirect damages and data migration delays.",
+    "authorizedUsers": [
+      "alice@contoso.com"
+    ],
+    "authorizedGroups": [
+      "legal-reviewers"
+    ]
+  },
+  {
+    "id": "ent-003",
+    "title": "Fabrikam Liability Addendum",
+    "url": "https://demo.contoso.com/internal/fabrikam-liability-addendum",
+    "category": "legal",
+    "snippet": "Fabrikam agreement liability cap is 1 times annual contract value, but includes a separate breach remedy credit and narrower force majeure language.",
+    "authorizedUsers": [
+      "alice@contoso.com"
+    ],
+    "authorizedGroups": [
+      "legal-reviewers"
+    ]
+  },
+  {
+    "id": "ent-004",
+    "title": "Internal Premium Escalation Policy",
+    "url": "https://demo.contoso.com/internal/premium-escalation",
+    "category": "support",
+    "snippet": "Premium incidents receive a 15-minute response objective and mandatory executive notification for severity 1 outages over 30 minutes.",
+    "authorizedUsers": [
+      "alice@contoso.com"
+    ],
+    "authorizedGroups": [
+      "operations-leads"
+    ]
+  }
+]

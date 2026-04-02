@@ -1,0 +1,30 @@
+[
+  {
+    "id": "pub-001",
+    "title": "Premium Agreement Overview",
+    "url": "https://demo.contoso.com/public/premium-overview",
+    "category": "agreements",
+    "snippet": "Premium agreements include priority support, enhanced SLAs, and optional commercial add-ons. Exact negotiated pricing terms are available only in customer-specific agreements."
+  },
+  {
+    "id": "pub-002",
+    "title": "General Liability Policy Summary",
+    "url": "https://demo.contoso.com/public/liability-summary",
+    "category": "legal",
+    "snippet": "The standard agreement includes general liability limitations and service credits for qualifying incidents. Specific caps and carve-outs vary by signed customer contract."
+  },
+  {
+    "id": "pub-003",
+    "title": "Support Tiers Overview",
+    "url": "https://demo.contoso.com/public/support-tiers",
+    "category": "support",
+    "snippet": "Support is offered in Standard, Advanced, and Premium tiers. Premium provides 24x7 response and named escalation management."
+  },
+  {
+    "id": "pub-004",
+    "title": "Pricing FAQ",
+    "url": "https://demo.contoso.com/public/pricing-faq",
+    "category": "pricing",
+    "snippet": "Pricing is determined by workload profile, committed volume, and contract duration. Public pages intentionally omit confidential discount schedules."
+  }
+]

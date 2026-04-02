@@ -1,0 +1,373 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
+using Azure.Core;
+using Microsoft.Extensions.Options;
+using SecureRagChat.Configuration;
+using SecureRagChat.Models;
+
+namespace SecureRagChat.Services;
+
+public sealed class AgenticRetrievalService : IAgenticRetrievalService
+{
+    private static readonly TokenRequestContext SearchTokenContext =
+        new(["https://search.azure.com/.default"]);
+
+    private readonly IHttpClientFactory _httpClientFactory;
+    private readonly AgenticRetrievalOptions _options;
+    private readonly TokenCredential _credential;
+    private readonly ILogger<AgenticRetrievalService> _logger;
+
+    public AgenticRetrievalService(
+        IHttpClientFactory httpClientFactory,
+        IOptions<AgenticRetrievalOptions> options,
+        TokenCredential credential,
+        ILogger<AgenticRetrievalService> logger)
+    {
+        _httpClientFactory = httpClientFactory;
+        _options = options.Value;
+        _credential = credential;
+        _logger = logger;
+    }
+
+    public async Task<RetrievalResult> RetrieveAsync(string query, RetrievalPlane plane, string? userToken, CancellationToken ct = default)
+    {
+        _logger.LogInformation(
+            "Agentic retrieval starting. KnowledgeBase={KnowledgeBase}, Plane={Plane}, QueryConstruction={QueryConstruction}",
+            _options.KnowledgeBaseName,
+            plane,
+            "KnowledgeBase retrieve call only");
+
+        if (userToken is not null)
+        {
+            _logger.LogWarning(
+                "Agentic retrieval does not pass x-ms-query-source-authorization to the knowledge base retrieve API. Per-user token pass-through is not applied in this mode.");
+        }
+
+        using var client = _httpClientFactory.CreateClient("AgenticRetrieval");
+        var requestUrl = $"{_options.Endpoint.TrimEnd('/')}/knowledgebases/{_options.KnowledgeBaseName}/retrieve?api-version={_options.ApiVersion}";
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, requestUrl);
+
+        if (!string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            request.Headers.Add("api-key", _options.ApiKey);
+            _logger.LogDebug("Agentic retrieval is using Azure AI Search API key authentication.");
+        }
+        else
+        {
+            var serviceToken = await _credential.GetTokenAsync(SearchTokenContext, ct);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", serviceToken.Token);
+            _logger.LogDebug("Agentic retrieval is using Azure RBAC authentication.");
+        }
+
+        var requestBody = new AgenticRetrievalRequest
+        {
+            Messages =
+            [
+                new AgenticMessage
+                {
+                    Role = "user",
+                    Content = [new AgenticMessageContent { Type = "text", Text = query }]
+                }
+            ],
+            RetrievalReasoningEffort = new AgenticReasoningEffort
+            {
+                Kind = _options.RetrievalReasoningEffort
+            },
+            OutputMode = _options.OutputMode,
+            IncludeActivity = _options.IncludeActivity,
+            MaxOutputSize = _options.MaxOutputSize,
+            MaxRuntimeInSeconds = _options.MaxRuntimeInSeconds
+        };
+
+        var requestPayload = JsonSerializer.Serialize(requestBody, AgenticSerializerContext.Default.AgenticRetrievalRequest);
+        _logger.LogInformation("Agentic retrieval request prepared without manual search query construction. Request={Request}", requestPayload);
+
+        request.Content = new StringContent(requestPayload, Encoding.UTF8, "application/json");
+
+        using var response = await client.SendAsync(request, ct);
+
+        if (response.StatusCode is not HttpStatusCode.OK and not HttpStatusCode.PartialContent)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            _logger.LogError("Knowledge base retrieve returned {StatusCode}: {Body}", (int)response.StatusCode, body);
+            throw new HttpRequestException($"Knowledge base retrieve returned {(int)response.StatusCode}");
+        }
+
+        var responseStream = await response.Content.ReadAsStreamAsync(ct);
+        var apiResponse = await JsonSerializer.DeserializeAsync(
+            responseStream,
+            AgenticSerializerContext.Default.AgenticRetrievalResponse,
+            ct);
+
+        var chunks = ExtractChunks(apiResponse);
+        var citations = ExtractCitations(apiResponse, chunks);
+
+        LogActivity(apiResponse);
+        _logger.LogInformation(
+            "Agentic retrieval completed. KnowledgeBase={KnowledgeBase}, ChunkCount={ChunkCount}, CitationCount={CitationCount}",
+            _options.KnowledgeBaseName,
+            chunks.Length,
+            citations.Length);
+
+        return new RetrievalResult
+        {
+            Chunks = chunks,
+            Plane = plane,
+            Source = RetrievalSource.KnowledgeBase,
+            Citations = citations
+        };
+    }
+
+    private void LogActivity(AgenticRetrievalResponse? apiResponse)
+    {
+        if (apiResponse?.Activity is null || apiResponse.Activity.Length == 0)
+        {
+            _logger.LogInformation("Agentic retrieval activity log is empty.");
+            return;
+        }
+
+        foreach (var activity in apiResponse.Activity)
+        {
+            if (activity.Type.Equals("searchIndex", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation(
+                    "Agentic retrieval delegated query execution. KnowledgeSource={KnowledgeSource}, Query={Query}, Filter={Filter}, Count={Count}",
+                    activity.KnowledgeSourceName ?? "unknown",
+                    activity.SearchIndexArguments?.Search ?? "n/a",
+                    activity.SearchIndexArguments?.Filter ?? "none",
+                    activity.Count);
+            }
+            else
+            {
+                _logger.LogInformation("Agentic retrieval activity step: Type={Type}, Count={Count}", activity.Type, activity.Count);
+            }
+        }
+    }
+
+    private static RetrievedChunk[] ExtractChunks(AgenticRetrievalResponse? apiResponse)
+    {
+        var contentText = apiResponse?.Response?
+            .SelectMany(message => message.Content ?? [])
+            .FirstOrDefault(content => string.Equals(content.Type, "text", StringComparison.OrdinalIgnoreCase))?
+            .Text;
+
+        if (string.IsNullOrWhiteSpace(contentText))
+        {
+            return [];
+        }
+
+        try
+        {
+            var chunkData = JsonSerializer.Deserialize(contentText, AgenticSerializerContext.Default.JsonArray);
+            if (chunkData is null)
+            {
+                return [];
+            }
+
+            return chunkData
+                .OfType<JsonObject>()
+                .Select((item, index) => CreateChunk(item, index))
+                .Where(chunk => chunk is not null)
+                .Select(chunk => chunk!)
+                .ToArray();
+        }
+        catch (JsonException)
+        {
+            return
+            [
+                new RetrievedChunk
+                {
+                    Id = "kb-response-0",
+                    Title = "Knowledge base result",
+                    Snippet = contentText.Trim()
+                }
+            ];
+        }
+    }
+
+    private static RetrievedChunk? CreateChunk(JsonObject item, int index)
+    {
+        var refId = item["ref_id"]?.GetValue<int?>()?.ToString() ?? index.ToString();
+        var title = item["title"]?.GetValue<string>()
+            ?? item["terms"]?.GetValue<string>()
+            ?? $"Knowledge base source {index + 1}";
+        var content = item["content"]?.GetValue<string>()
+            ?? item["text"]?.GetValue<string>()
+            ?? item.ToJsonString();
+        var url = item["url"]?.GetValue<string>();
+
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return null;
+        }
+
+        return new RetrievedChunk
+        {
+            Id = refId,
+            Title = title,
+            Url = url,
+            Snippet = content
+        };
+    }
+
+    private static Citation[] ExtractCitations(AgenticRetrievalResponse? apiResponse, RetrievedChunk[] chunks)
+    {
+        if (apiResponse?.References is null || apiResponse.References.Length == 0)
+        {
+            return [];
+        }
+
+        var citations = new List<Citation>();
+
+        foreach (var reference in apiResponse.References)
+        {
+            var sourceIndex = ParseSourceIndex(reference.Id, chunks);
+            var matchingChunk = sourceIndex > 0 && sourceIndex <= chunks.Length ? chunks[sourceIndex - 1] : null;
+
+            citations.Add(new Citation
+            {
+                Title = matchingChunk?.Title ?? reference.DocKey ?? $"Knowledge base source {reference.Id}",
+                Url = ExtractUrl(reference.SourceData) ?? matchingChunk?.Url,
+                SourceIndex = sourceIndex > 0 ? sourceIndex : citations.Count + 1
+            });
+        }
+
+        return citations.ToArray();
+    }
+
+    private static int ParseSourceIndex(string? referenceId, RetrievedChunk[] chunks)
+    {
+        if (!int.TryParse(referenceId, out var zeroBasedId))
+        {
+            return 0;
+        }
+
+        var sourceIndex = zeroBasedId + 1;
+        return sourceIndex <= chunks.Length ? sourceIndex : 0;
+    }
+
+    private static string? ExtractUrl(JsonObject? sourceData)
+    {
+        return sourceData?["url"]?.GetValue<string>()
+            ?? sourceData?["sourceUrl"]?.GetValue<string>()
+            ?? sourceData?["uri"]?.GetValue<string>();
+    }
+}
+
+internal sealed class AgenticRetrievalRequest
+{
+    [JsonPropertyName("messages")]
+    public required AgenticMessage[] Messages { get; set; }
+
+    [JsonPropertyName("retrievalReasoningEffort")]
+    public required AgenticReasoningEffort RetrievalReasoningEffort { get; set; }
+
+    [JsonPropertyName("outputMode")]
+    public required string OutputMode { get; set; }
+
+    [JsonPropertyName("includeActivity")]
+    public bool IncludeActivity { get; set; }
+
+    [JsonPropertyName("maxOutputSize")]
+    public int MaxOutputSize { get; set; }
+
+    [JsonPropertyName("maxRuntimeInSeconds")]
+    public int MaxRuntimeInSeconds { get; set; }
+}
+
+internal sealed class AgenticMessage
+{
+    [JsonPropertyName("role")]
+    public required string Role { get; set; }
+
+    [JsonPropertyName("content")]
+    public required AgenticMessageContent[] Content { get; set; }
+}
+
+internal sealed class AgenticMessageContent
+{
+    [JsonPropertyName("type")]
+    public required string Type { get; set; }
+
+    [JsonPropertyName("text")]
+    public required string Text { get; set; }
+}
+
+internal sealed class AgenticReasoningEffort
+{
+    [JsonPropertyName("kind")]
+    public required string Kind { get; set; }
+}
+
+internal sealed class AgenticRetrievalResponse
+{
+    [JsonPropertyName("response")]
+    public AgenticResponseMessage[]? Response { get; set; }
+
+    [JsonPropertyName("activity")]
+    public AgenticActivity[]? Activity { get; set; }
+
+    [JsonPropertyName("references")]
+    public AgenticReference[]? References { get; set; }
+}
+
+internal sealed class AgenticResponseMessage
+{
+    [JsonPropertyName("content")]
+    public AgenticResponseContent[]? Content { get; set; }
+}
+
+internal sealed class AgenticResponseContent
+{
+    [JsonPropertyName("type")]
+    public string? Type { get; set; }
+
+    [JsonPropertyName("text")]
+    public string? Text { get; set; }
+}
+
+internal sealed class AgenticActivity
+{
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = string.Empty;
+
+    [JsonPropertyName("knowledgeSourceName")]
+    public string? KnowledgeSourceName { get; set; }
+
+    [JsonPropertyName("count")]
+    public int? Count { get; set; }
+
+    [JsonPropertyName("searchIndexArguments")]
+    public AgenticSearchIndexArguments? SearchIndexArguments { get; set; }
+}
+
+internal sealed class AgenticSearchIndexArguments
+{
+    [JsonPropertyName("search")]
+    public string? Search { get; set; }
+
+    [JsonPropertyName("filter")]
+    public string? Filter { get; set; }
+}
+
+internal sealed class AgenticReference
+{
+    [JsonPropertyName("id")]
+    public string? Id { get; set; }
+
+    [JsonPropertyName("docKey")]
+    public string? DocKey { get; set; }
+
+    [JsonPropertyName("sourceData")]
+    public JsonObject? SourceData { get; set; }
+}
+
+[JsonSerializable(typeof(AgenticRetrievalRequest))]
+[JsonSerializable(typeof(AgenticRetrievalResponse))]
+[JsonSerializable(typeof(JsonArray))]
+internal partial class AgenticSerializerContext : JsonSerializerContext;

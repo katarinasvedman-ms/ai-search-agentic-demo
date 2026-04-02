@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "swedencentral"
+    },
+    "namePrefix": {
+      "value": "kapeltol-demo"
+    },
+    "searchSku": {
+      "value": "standard"
+    },
+    "openAiDeploymentName": {
+      "value": "gpt-4.1"
+    },
+    "openAiModelName": {
+      "value": "gpt-4.1"
+    },
+    "openAiModelVersion": {
+      "value": "2025-01-01"
+    },
+    "enableBingFallback": {
+      "value": false
+    }
+  }
+}

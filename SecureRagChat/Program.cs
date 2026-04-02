@@ -1,0 +1,63 @@
+using Azure.Core;
+using Azure.Identity;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Identity.Web;
+using SecureRagChat.Auth;
+using SecureRagChat.Configuration;
+using SecureRagChat.Orchestration;
+using SecureRagChat.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// --- Authentication ---
+// Supports both anonymous and authenticated requests.
+// Authenticated users get entitled retrieval; anonymous users get public retrieval.
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
+
+builder.Services.AddAuthorization();
+
+// --- Configuration (strongly typed) ---
+builder.Services.Configure<AzureSearchOptions>(
+    builder.Configuration.GetSection(AzureSearchOptions.SectionName));
+builder.Services.Configure<AzureOpenAIOptions>(
+    builder.Configuration.GetSection(AzureOpenAIOptions.SectionName));
+builder.Services.Configure<BingSearchOptions>(
+    builder.Configuration.GetSection(BingSearchOptions.SectionName));
+builder.Services.Configure<AgenticRetrievalOptions>(
+    builder.Configuration.GetSection(AgenticRetrievalOptions.SectionName));
+
+// --- Azure credential (singleton, shared across services) ---
+builder.Services.AddSingleton<TokenCredential>(
+    new DefaultAzureCredential());
+
+// --- HTTP clients ---
+builder.Services.AddHttpClient("AzureSearch");
+builder.Services.AddHttpClient("AzureOpenAI");
+builder.Services.AddHttpClient("BingSearch");
+builder.Services.AddHttpClient("AgenticRetrieval");
+
+// --- Core services ---
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<IDevelopmentUserTokenProvider, DevelopmentAzureCliUserTokenProvider>();
+builder.Services.AddScoped<UserTokenAccessor>();
+builder.Services.AddSingleton<IRetrievalService, AzureSearchRetrievalService>();
+builder.Services.AddSingleton<IAgenticRetrievalService, AgenticRetrievalService>();
+builder.Services.AddSingleton<IBingRetrievalService, BingRetrievalService>();
+builder.Services.AddSingleton<IResponsesApiService, ResponsesApiService>();
+
+// --- Orchestrator ---
+builder.Services.AddScoped<ChatOrchestrator>();
+
+// --- Controllers ---
+builder.Services.AddControllers();
+
+var app = builder.Build();
+
+app.UseHttpsRedirection();
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();
