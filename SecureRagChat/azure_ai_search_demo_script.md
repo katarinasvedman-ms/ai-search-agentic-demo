@@ -3,6 +3,9 @@
 ## 🎯 Objective
 Demonstrate the shift from controlled, manual retrieval to platform-driven, agentic retrieval in Azure AI Search.
 
+## 🖼️ Demo UI Snapshot
+![Frontend demo UI](images/screenshot-frontend.png)
+
 ---
 
 ## 🧭 1. Framing (30 sec)
