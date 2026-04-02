@@ -201,71 +201,79 @@ function App() {
 
         <section className="transcript-section">
           {entries.length === 0 ? null : (
-            <div className="transcript-list">
-              {entries.map((entry) => (
-                <article key={entry.id} className="transcript-entry">
-                  <div className="user-bubble">
-                    <span className="message-meta">{entry.mode === 'anonymous' ? 'Guest' : 'Azure user'}</span>
-                    <p>{entry.query}</p>
-                  </div>
+            <div className="transcript-debug-layout">
+              <div className="transcript-list">
+                {entries.map((entry) => (
+                  <article key={entry.id} className="transcript-entry">
+                    <div className="user-bubble">
+                      <span className="message-meta">{entry.mode === 'anonymous' ? 'Guest' : 'Azure user'}</span>
+                      <p>{entry.query}</p>
+                    </div>
 
-                  <div className="assistant-card">
-                    {entry.isLoading ? (
-                      <div className="loading-state">
-                        <span className="loading-dot" />
-                        Retrieving authorized context and generating a grounded answer...
-                      </div>
-                    ) : entry.error ? (
-                      <div className="response-layout">
+                    <div className="assistant-card">
+                      {entry.isLoading ? (
+                        <div className="loading-state">
+                          <span className="loading-dot" />
+                          Retrieving authorized context and generating a grounded answer...
+                        </div>
+                      ) : entry.error ? (
                         <div className="error-state">{entry.error}</div>
-                        <RetrievalDetailsPanel
-                          requestedMode={entry.retrievalMode}
-                          requesterMode={entry.mode}
-                          errorMessage={entry.error}
-                        />
-                      </div>
-                    ) : entry.response ? (
-                      <>
-                        <div className="response-layout">
-                          <div>
-                            <div className="answer-block">
-                              <p>{entry.response.answer}</p>
-                            </div>
-
-                            <div className="citation-block">
-                              {entry.response.citations.length === 0 ? (
-                                <p className="citation-empty">No citations were returned for this answer.</p>
-                              ) : (
-                                <ul className="citation-list">
-                                  {entry.response.citations.map((citation) => (
-                                    <li key={`${entry.id}-${citation.sourceIndex}`}>
-                                      <span className="citation-index">[{citation.sourceIndex}]</span>
-                                      <div>
-                                        <strong>{citation.title}</strong>
-                                        {citation.url ? (
-                                          <a href={citation.url} rel="noreferrer" target="_blank">
-                                            {citation.url}
-                                          </a>
-                                        ) : null}
-                                      </div>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
+                      ) : entry.response ? (
+                        <>
+                          <div className="answer-block">
+                            <p>{entry.response.answer}</p>
                           </div>
 
-                          <RetrievalDetailsPanel
-                            response={entry.response}
-                            requestedMode={entry.retrievalMode}
-                            requesterMode={entry.mode}
-                          />
-                        </div>
-                      </>
-                    ) : null}
-                  </div>
-                </article>
-              ))}
+                          <div className="citation-block">
+                            {entry.response.citations.length === 0 ? (
+                              <p className="citation-empty">No citations were returned for this answer.</p>
+                            ) : (
+                              <ul className="citation-list">
+                                {entry.response.citations.map((citation) => (
+                                  <li key={`${entry.id}-${citation.sourceIndex}`}>
+                                    <span className="citation-index">[{citation.sourceIndex}]</span>
+                                    <div>
+                                      <strong>{citation.title}</strong>
+                                      {citation.url ? (
+                                        <a href={citation.url} rel="noreferrer" target="_blank">
+                                          {citation.url}
+                                        </a>
+                                      ) : null}
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              <aside className="debug-section" aria-label="Debug log">
+                <div className="debug-section-header">
+                  <h2>Debug</h2>
+                </div>
+
+                <div className="debug-list">
+                  {entries.map((entry) => (
+                    <article key={`debug-${entry.id}`} className="debug-entry">
+                      <span className="debug-entry-title">
+                        {entry.retrievalMode} · {entry.mode === 'anonymous' ? 'Guest' : 'Azure user'}
+                      </span>
+                      <p className="debug-entry-query">{entry.query}</p>
+                      <RetrievalDetailsPanel
+                        response={entry.response}
+                        requestedMode={entry.retrievalMode}
+                        requesterMode={entry.mode}
+                        errorMessage={entry.error}
+                      />
+                    </article>
+                  ))}
+                </div>
+              </aside>
             </div>
           )}
         </section>
