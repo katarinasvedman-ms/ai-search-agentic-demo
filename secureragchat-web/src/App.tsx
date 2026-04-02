@@ -162,103 +162,121 @@ function App() {
       </header>
 
       <main className="chat-layout">
-        <section className="composer-section">
+        <section className="hero-section">
           <h1>How can I help you today?</h1>
-
-          <form className="composer-form" onSubmit={handleSubmit}>
-            <div className="retrieval-toggle" role="group" aria-label="Retrieval mode">
-              <button
-                className={`toggle-button ${retrievalMode === 'Traditional' ? 'active' : ''}`}
-                type="button"
-                onClick={() => setRetrievalMode('Traditional')}
-              >
-                Traditional
-              </button>
-              <button
-                className={`toggle-button ${retrievalMode === 'Agentic' ? 'active' : ''}`}
-                type="button"
-                onClick={() => setRetrievalMode('Agentic')}
-              >
-                Agentic
-              </button>
-            </div>
-
-            <div className="chat-input-shell">
-              <input
-                className="query-input"
-                maxLength={4000}
-                placeholder="Ask anything"
-                type="text"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-              />
-              <button className="submit-button" type="submit">
-                Ask
-              </button>
-            </div>
-          </form>
         </section>
 
         <section className="transcript-section">
-          {entries.length === 0 ? null : (
-            <div className="transcript-debug-layout">
-              <div className="transcript-list">
-                {entries.map((entry) => (
-                  <article key={entry.id} className="transcript-entry">
-                    <div className="user-bubble">
-                      <span className="message-meta">{entry.mode === 'anonymous' ? 'Guest' : 'Azure user'}</span>
-                      <p>{entry.query}</p>
-                    </div>
-
-                    <div className="assistant-card">
-                      {entry.isLoading ? (
-                        <div className="loading-state">
-                          <span className="loading-dot" />
-                          Retrieving authorized context and generating a grounded answer...
-                        </div>
-                      ) : entry.error ? (
-                        <div className="error-state">{entry.error}</div>
-                      ) : entry.response ? (
-                        <>
-                          <div className="answer-block">
-                            <p>{entry.response.answer}</p>
-                          </div>
-
-                          <div className="citation-block">
-                            {entry.response.citations.length === 0 ? (
-                              <p className="citation-empty">No citations were returned for this answer.</p>
-                            ) : (
-                              <ul className="citation-list">
-                                {entry.response.citations.map((citation) => (
-                                  <li key={`${entry.id}-${citation.sourceIndex}`}>
-                                    <span className="citation-index">[{citation.sourceIndex}]</span>
-                                    <div>
-                                      <strong>{citation.title}</strong>
-                                      {citation.url ? (
-                                        <a href={citation.url} rel="noreferrer" target="_blank">
-                                          {citation.url}
-                                        </a>
-                                      ) : null}
-                                    </div>
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
-                        </>
-                      ) : null}
-                    </div>
-                  </article>
-                ))}
+          <div className="transcript-debug-layout">
+            <section className="chat-section" aria-label="Chat">
+              <div className="chat-section-header">
+                <h2>Chat</h2>
               </div>
 
-              <aside className="debug-section" aria-label="Debug log">
-                <div className="debug-section-header">
-                  <h2>Debug</h2>
-                </div>
+              <div className="transcript-list">
+                <section className="composer-section">
+                  <form className="composer-form" onSubmit={handleSubmit}>
+                    <div className="retrieval-toggle" role="group" aria-label="Retrieval mode">
+                      <button
+                        className={`toggle-button ${retrievalMode === 'Traditional' ? 'active' : ''}`}
+                        type="button"
+                        onClick={() => setRetrievalMode('Traditional')}
+                      >
+                        Traditional
+                      </button>
+                      <button
+                        className={`toggle-button ${retrievalMode === 'Agentic' ? 'active' : ''}`}
+                        type="button"
+                        onClick={() => setRetrievalMode('Agentic')}
+                      >
+                        Agentic
+                      </button>
+                    </div>
 
-                <div className="debug-list">
-                  {entries.map((entry) => (
+                    <div className="chat-input-shell">
+                      <input
+                        className="query-input"
+                        maxLength={4000}
+                        placeholder="Ask anything"
+                        type="text"
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                      />
+                      <button className="submit-button" type="submit">
+                        Ask
+                      </button>
+                    </div>
+                  </form>
+                </section>
+
+                {entries.length === 0 ? (
+                  <article className="empty-pane-state">
+                    <p>Chat responses will appear here after you ask your first question.</p>
+                  </article>
+                ) : (
+                  entries.map((entry) => (
+                    <article key={entry.id} className="transcript-entry">
+                      <div className="user-bubble">
+                        <span className="message-meta">{entry.mode === 'anonymous' ? 'Guest' : 'Azure user'}</span>
+                        <p>{entry.query}</p>
+                      </div>
+
+                      <div className="assistant-card">
+                        {entry.isLoading ? (
+                          <div className="loading-state">
+                            <span className="loading-dot" />
+                            Retrieving authorized context and generating a grounded answer...
+                          </div>
+                        ) : entry.error ? (
+                          <div className="error-state">{entry.error}</div>
+                        ) : entry.response ? (
+                          <>
+                            <div className="answer-block">
+                              <p>{entry.response.answer}</p>
+                            </div>
+
+                            <div className="citation-block">
+                              {entry.response.citations.length === 0 ? (
+                                <p className="citation-empty">No citations were returned for this answer.</p>
+                              ) : (
+                                <ul className="citation-list">
+                                  {entry.response.citations.map((citation) => (
+                                    <li key={`${entry.id}-${citation.sourceIndex}`}>
+                                      <span className="citation-index">[{citation.sourceIndex}]</span>
+                                      <div>
+                                        <strong>{citation.title}</strong>
+                                        {citation.url ? (
+                                          <a href={citation.url} rel="noreferrer" target="_blank">
+                                            {citation.url}
+                                          </a>
+                                        ) : null}
+                                      </div>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          </>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <aside className="debug-section" aria-label="Debug log">
+              <div className="debug-section-header">
+                <h2>Debug</h2>
+              </div>
+
+              <div className="debug-list">
+                {entries.length === 0 ? (
+                  <article className="empty-pane-state empty-pane-state-debug">
+                    <p>Retrieval details will appear here after the first response.</p>
+                  </article>
+                ) : (
+                  entries.map((entry) => (
                     <article key={`debug-${entry.id}`} className="debug-entry">
                       <span className="debug-entry-title">
                         {entry.retrievalMode} · {entry.mode === 'anonymous' ? 'Guest' : 'Azure user'}
@@ -271,11 +289,11 @@ function App() {
                         errorMessage={entry.error}
                       />
                     </article>
-                  ))}
-                </div>
-              </aside>
-            </div>
-          )}
+                  ))
+                )}
+              </div>
+            </aside>
+          </div>
         </section>
       </main>
     </div>
