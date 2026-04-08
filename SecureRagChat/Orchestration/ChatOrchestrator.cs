@@ -173,7 +173,7 @@ public sealed class ChatOrchestrator
             return "Knowledge base";
         }
 
-        return source == RetrievalSource.Bing ? "Web fallback" : "Hybrid + semantic";
+        return source == RetrievalSource.Bing ? "Web fallback" : "Semantic ranking";
     }
 
     private static string ResolveAuthorizationLabel(RetrievalPlane plane, bool isAuthenticated)

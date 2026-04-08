@@ -59,7 +59,7 @@ function detailsRows(
   if (mode === 'traditional') {
     rows.push({
       label: 'Retrieval style',
-      value: details?.retrievalStyle ?? 'Hybrid + semantic',
+      value: details?.retrievalStyle ?? 'Semantic ranking',
     });
     rows.push({
       label: 'Filters',

@@ -243,7 +243,7 @@ This repository now includes repeatable assets for the Traditional vs Agentic re
 ## Future Improvements
 
 1. **Caching**: Cache retrieval results for identical queries from the same user to reduce Search calls
-2. **Ranking tuning**: Use semantic ranking or custom scoring profiles in Azure AI Search
+2. **Ranking tuning**: Fine-tune semantic ranking behavior or add custom scoring profiles in Azure AI Search
 3. **Conversation memory**: Add multi-turn support with conversation history stored in Cosmos DB or in-memory
 4. **Evaluation**: Add automated evaluation of answer quality, groundedness, and citation accuracy
 5. **Streaming**: Support streamed responses from Azure OpenAI for lower time-to-first-token

@@ -34,8 +34,25 @@ function Invoke-SearchPut {
   Invoke-RestMethod -Method Put -Uri $Url -Headers $headers -Body $Body | Out-Null
 }
 
+$semanticConfig = @{
+  defaultConfiguration = 'default'
+  configurations = @(
+    @{
+      name = 'default'
+      prioritizedFields = @{
+        titleField = @{ fieldName = 'title' }
+        prioritizedContentFields = @(
+          @{ fieldName = 'content' },
+          @{ fieldName = 'snippet' }
+        )
+      }
+    }
+  )
+}
+
 $publicIndex = @{
   name = $PublicIndexName
+  semantic = $semanticConfig
   fields = @(
     @{ name = 'id'; type = 'Edm.String'; key = $true; searchable = $false; filterable = $true; sortable = $false; facetable = $false; retrievable = $true },
     @{ name = 'title'; type = 'Edm.String'; searchable = $true; filterable = $false; sortable = $true; facetable = $false; retrievable = $true },
@@ -49,6 +66,7 @@ $publicIndex = @{
 $entitledIndex = @{
   name = $EntitledIndexName
   permissionFilterOption = 'enabled'
+  semantic = $semanticConfig
   fields = @(
     @{ name = 'id'; type = 'Edm.String'; key = $true; searchable = $false; filterable = $true; sortable = $false; facetable = $false; retrievable = $true },
     @{ name = 'title'; type = 'Edm.String'; searchable = $true; filterable = $false; sortable = $true; facetable = $false; retrievable = $true },

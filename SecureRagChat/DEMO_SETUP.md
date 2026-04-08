@@ -34,7 +34,7 @@ This creates:
 - `public-index`
 - `entitled-index`
 
-The index schema includes a `content` field. If you have already created the indexes, recreate them before reseeding so the richer full-document text is available to retrieval.
+The index schema includes a `content` field and a semantic configuration named `default` used by Traditional mode. If you have already created the indexes, recreate them before reseeding so semantic ranking and richer full-document text are both available to retrieval.
 
 ## 4. Seed Curated Demo Data
 
@@ -76,6 +76,7 @@ Suggested source material for the knowledge base is included under `demo-data/kn
 Current app behavior:
 
 - Traditional mode demonstrates per-user security trimming via `x-ms-query-source-authorization`.
+- Traditional mode can use semantic ranking when `AzureSearch:EnableSemanticRanking=true`.
 - Agentic mode demonstrates platform-managed retrieval orchestration through Knowledge Base retrieve API.
 - Do not present Agentic mode as equivalent to the Traditional per-user trimming proof unless separately validated.
 

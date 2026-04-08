@@ -35,6 +35,46 @@ function withDemoAuthHint(url: string, mode: 'anonymous' | 'authenticated'): str
   return `${url}${separator}demoAuth=1`;
 }
 
+function isWeakKnowledgeBaseCitation(citation: { title: string; url?: string | null }): boolean {
+  return !citation.url && citation.title.trim().toLowerCase() === 'knowledge base result';
+}
+
+function getDisplayCitations(citations: Array<{ title: string; url?: string | null; sourceIndex: number }>) {
+  return citations.filter((citation) => !isWeakKnowledgeBaseCitation(citation));
+}
+
+function shouldHideCitationBlock(response: {
+  answer: string;
+  citations: Array<{ title: string; url?: string | null; sourceIndex: number }>;
+  diagnostics: { chunkCount: number };
+}) {
+  return getDisplayCitations(response.citations).length === 0
+    && (response.diagnostics.chunkCount === 0 || isNoAnswerResponse(response.answer));
+}
+
+function isNoAnswerResponse(answer: string): boolean {
+  const normalizedAnswer = answer.trim().toLowerCase();
+
+  return normalizedAnswer === "i don't know based on the available information."
+    || normalizedAnswer === "i don't have relevant information to answer your question.";
+}
+
+function getEmptyCitationMessage(response: {
+  answer: string;
+  citations: Array<{ title: string; url?: string | null; sourceIndex: number }>;
+  diagnostics: { chunkCount: number };
+}) {
+  if (response.diagnostics.chunkCount === 0) {
+    return 'No relevant sources were retrieved for this question.';
+  }
+
+  if (isNoAnswerResponse(response.answer)) {
+    return 'No relevant sources were retrieved for this question.';
+  }
+
+  return 'No citations were returned for this answer.';
+}
+
 function App() {
   const [mode, setMode] = useState<'anonymous' | 'authenticated'>('anonymous');
   const [retrievalMode, setRetrievalMode] = useState<RetrievalMode>('Traditional');
@@ -258,27 +298,29 @@ function App() {
                               <p>{entry.response.answer}</p>
                             </div>
 
-                            <div className="citation-block">
-                              {entry.response.citations.length === 0 ? (
-                                <p className="citation-empty">No citations were returned for this answer.</p>
-                              ) : (
-                                <ul className="citation-list">
-                                  {entry.response.citations.map((citation) => (
-                                    <li key={`${entry.id}-${citation.sourceIndex}`}>
-                                      <span className="citation-index">[{citation.sourceIndex}]</span>
-                                      <div>
-                                        <strong>{citation.title}</strong>
-                                        {citation.url ? (
-                                          <a href={withDemoAuthHint(resolveCitationUrl(citation.url), entry.mode)} rel="noreferrer" target="_blank">
-                                            {citation.url}
-                                          </a>
-                                        ) : null}
-                                      </div>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
+                            {!shouldHideCitationBlock(entry.response) ? (
+                              <div className="citation-block">
+                                {getDisplayCitations(entry.response.citations).length === 0 ? (
+                                  <p className="citation-empty">{getEmptyCitationMessage(entry.response)}</p>
+                                ) : (
+                                  <ul className="citation-list">
+                                    {getDisplayCitations(entry.response.citations).map((citation) => (
+                                      <li key={`${entry.id}-${citation.sourceIndex}`}>
+                                        <span className="citation-index">[{citation.sourceIndex}]</span>
+                                        <div>
+                                          <strong>{citation.title}</strong>
+                                          {citation.url ? (
+                                            <a href={withDemoAuthHint(resolveCitationUrl(citation.url), entry.mode)} rel="noreferrer" target="_blank">
+                                              {citation.url}
+                                            </a>
+                                          ) : null}
+                                        </div>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            ) : null}
                           </>
                         ) : null}
                       </div>

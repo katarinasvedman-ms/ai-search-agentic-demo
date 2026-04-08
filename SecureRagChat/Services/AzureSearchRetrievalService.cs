@@ -73,6 +73,12 @@ public sealed class AzureSearchRetrievalService : IRetrievalService
             Select = "id,title,url,snippet,content"
         };
 
+        if (_options.EnableSemanticRanking)
+        {
+            searchBody.QueryType = "semantic";
+            searchBody.SemanticConfiguration = _options.SemanticConfiguration;
+        }
+
         var requestPayload = JsonSerializer.Serialize(searchBody, SearchSerializerContext.Default.SearchRequest);
         _logger.LogInformation(
             "Traditional retrieval constructed Azure AI Search request. Plane={Plane}, Index={Index}, Filters={Filters}, Request={Request}",
@@ -135,6 +141,12 @@ internal sealed class SearchRequest
 
     [JsonPropertyName("select")]
     public string? Select { get; set; }
+
+    [JsonPropertyName("queryType")]
+    public string? QueryType { get; set; }
+
+    [JsonPropertyName("semanticConfiguration")]
+    public string? SemanticConfiguration { get; set; }
 }
 
 internal sealed class SearchResponse
