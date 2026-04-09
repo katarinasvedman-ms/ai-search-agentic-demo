@@ -151,7 +151,7 @@ Log in as **Azure User**. Ask the same question.
 - Retrieval type: **System retrieval**
 - Query construction: **handled by system**
 - Knowledge base: **used**
-- Authorization: **entitled user** — call out as session context, not as the security-trimming proof
+- Authorization: **entitled user** — same caller context is now forwarded into the knowledge base retrieve call, even though Traditional mode is still the simpler path to explain live
 
 ---
 

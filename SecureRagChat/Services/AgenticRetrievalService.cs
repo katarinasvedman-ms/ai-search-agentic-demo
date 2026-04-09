@@ -43,12 +43,6 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
             plane,
             "KnowledgeBase retrieve call only");
 
-        if (userToken is not null)
-        {
-            _logger.LogWarning(
-                "Agentic retrieval does not pass x-ms-query-source-authorization to the knowledge base retrieve API. Per-user token pass-through is not applied in this mode.");
-        }
-
         using var client = _httpClientFactory.CreateClient("AgenticRetrieval");
         var requestUrl = $"{_options.Endpoint.TrimEnd('/')}/knowledgebases/{_options.KnowledgeBaseName}/retrieve?api-version={_options.ApiVersion}";
 
@@ -64,6 +58,16 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
             var serviceToken = await _credential.GetTokenAsync(SearchTokenContext, ct);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", serviceToken.Token);
             _logger.LogDebug("Agentic retrieval is using Azure RBAC authentication.");
+        }
+
+        if (plane == RetrievalPlane.Entitled && !string.IsNullOrWhiteSpace(userToken))
+        {
+            request.Headers.Add("x-ms-query-source-authorization", userToken);
+            _logger.LogInformation("Passing caller token to the knowledge base retrieve API for entitled agentic retrieval.");
+        }
+        else
+        {
+            _logger.LogInformation("Calling knowledge base retrieve API without caller token; public content only.");
         }
 
         var configuredOutputMode = NormalizeOutputMode(_options.OutputMode);
@@ -110,6 +114,7 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
                     requestUrl,
                     query,
                     plane,
+                    userToken,
                     configuredOutputMode,
                     FallbackOutputMode,
                     ct);
@@ -156,6 +161,7 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
         string requestUrl,
         string query,
         RetrievalPlane plane,
+        string? userToken,
         string originalOutputMode,
         string retryOutputMode,
         CancellationToken ct)
@@ -170,6 +176,11 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
         {
             var serviceToken = await _credential.GetTokenAsync(SearchTokenContext, ct);
             retryRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", serviceToken.Token);
+        }
+
+        if (plane == RetrievalPlane.Entitled && !string.IsNullOrWhiteSpace(userToken))
+        {
+            retryRequest.Headers.Add("x-ms-query-source-authorization", userToken);
         }
 
         var retryBody = new AgenticRetrievalRequest
@@ -356,11 +367,24 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
         {
             var sourceIndex = ParseSourceIndex(reference.Id, chunks);
             var matchingChunk = sourceIndex > 0 && sourceIndex <= chunks.Length ? chunks[sourceIndex - 1] : null;
+            var referenceDocId = ExtractDocumentId(reference.SourceData) ?? NormalizeDocumentId(reference.DocKey);
+            var hasPlaceholderChunkTitle = string.Equals(
+                matchingChunk?.Title,
+                "Knowledge base result",
+                StringComparison.OrdinalIgnoreCase);
+
+            var citationTitle = !string.IsNullOrWhiteSpace(reference.DocKey)
+                ? reference.DocKey
+                : !string.IsNullOrWhiteSpace(referenceDocId)
+                    ? referenceDocId
+                : hasPlaceholderChunkTitle
+                    ? $"Knowledge base source {reference.Id ?? (citations.Count + 1).ToString()}"
+                    : matchingChunk?.Title ?? $"Knowledge base source {reference.Id}";
 
             citations.Add(new Citation
             {
-                Title = matchingChunk?.Title ?? reference.DocKey ?? $"Knowledge base source {reference.Id}",
-                Url = ExtractUrl(reference.SourceData) ?? matchingChunk?.Url,
+                Title = citationTitle,
+                Url = ExtractUrl(reference.SourceData, reference.DocKey, matchingChunk) ?? matchingChunk?.Url,
                 SourceIndex = sourceIndex > 0 ? sourceIndex : citations.Count + 1
             });
         }
@@ -379,11 +403,107 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
         return sourceIndex <= chunks.Length ? sourceIndex : 0;
     }
 
-    private static string? ExtractUrl(JsonObject? sourceData)
+    private static string? ExtractUrl(JsonObject? sourceData, string? docKey, RetrievedChunk? matchingChunk)
     {
-        return sourceData?["url"]?.GetValue<string>()
-            ?? sourceData?["sourceUrl"]?.GetValue<string>()
-            ?? sourceData?["uri"]?.GetValue<string>();
+        var directUrl = ExtractFirstStringByKeys(
+            sourceData,
+            ["url", "sourceUrl", "uri", "documentUrl", "docUrl", "path"]);
+
+        if (!string.IsNullOrWhiteSpace(directUrl))
+        {
+            return directUrl;
+        }
+
+        var docId = ExtractDocumentId(sourceData)
+            ?? NormalizeDocumentId(docKey)
+            ?? NormalizeDocumentId(matchingChunk?.Id)
+            ?? NormalizeDocumentId(matchingChunk?.Title);
+
+        return string.IsNullOrWhiteSpace(docId)
+            ? null
+            : $"/api/demo-docs/{docId}";
+    }
+
+    private static string? ExtractDocumentId(JsonObject? sourceData)
+    {
+        return NormalizeDocumentId(
+            ExtractFirstStringByKeys(
+                sourceData,
+                ["id", "docId", "documentId", "key", "docKey", "sourceId", "referenceId"]));
+    }
+
+    private static string? ExtractFirstStringByKeys(JsonNode? node, string[] keys)
+    {
+        if (node is JsonObject obj)
+        {
+            foreach (var key in keys)
+            {
+                if (obj.TryGetPropertyValue(key, out var value) && value is JsonValue jsonValue)
+                {
+                    var stringValue = jsonValue.GetValue<string?>();
+                    if (!string.IsNullOrWhiteSpace(stringValue))
+                    {
+                        return stringValue;
+                    }
+                }
+            }
+
+            foreach (var property in obj)
+            {
+                var nestedValue = ExtractFirstStringByKeys(property.Value, keys);
+                if (!string.IsNullOrWhiteSpace(nestedValue))
+                {
+                    return nestedValue;
+                }
+            }
+
+            return null;
+        }
+
+        if (node is JsonArray array)
+        {
+            foreach (var item in array)
+            {
+                var nestedValue = ExtractFirstStringByKeys(item, keys);
+                if (!string.IsNullOrWhiteSpace(nestedValue))
+                {
+                    return nestedValue;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static string? NormalizeDocumentId(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+
+        if (trimmed.StartsWith("/api/demo-docs/", StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
+        }
+
+        if (trimmed.StartsWith("ent-", StringComparison.OrdinalIgnoreCase))
+        {
+            return trimmed;
+        }
+
+        var marker = "ent-";
+        var markerIndex = trimmed.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (markerIndex < 0)
+        {
+            return null;
+        }
+
+        var suffix = trimmed[markerIndex..];
+        var id = new string(suffix.TakeWhile(c => char.IsLetterOrDigit(c) || c == '-').ToArray());
+        return string.IsNullOrWhiteSpace(id) ? null : id;
     }
 }
 

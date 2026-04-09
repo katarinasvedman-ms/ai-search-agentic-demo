@@ -78,7 +78,8 @@ Current app behavior:
 - Traditional mode demonstrates per-user security trimming via `x-ms-query-source-authorization`.
 - Traditional mode can use semantic ranking when `AzureSearch:EnableSemanticRanking=true`.
 - Agentic mode demonstrates platform-managed retrieval orchestration through Knowledge Base retrieve API.
-- Do not present Agentic mode as equivalent to the Traditional per-user trimming proof unless separately validated.
+- Authenticated Agentic requests now also forward `x-ms-query-source-authorization` to the knowledge base retrieve call.
+- Traditional mode is still the easiest place to show the proof because the search path and filters are explicit in the debug panel.
 
 ## 7. Rehearsal Checklist
 

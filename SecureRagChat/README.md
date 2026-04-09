@@ -65,11 +65,11 @@ The model **never** sees unauthorized data. Authorization is enforced by Azure A
 1. Client sends `POST /api/chat` with `"mode": "Agentic"`
 2. Orchestrator still determines retrieval plane (`Public` or `Entitled`) from auth context
 3. `AgenticRetrievalService` issues one Knowledge Base retrieve call
-4. Retrieved chunks and references are normalized into the existing retrieval contract
-5. Chunks are passed to Azure OpenAI Responses API for final answer generation
+4. For entitled requests, the service forwards `x-ms-query-source-authorization` with the caller token
+5. Retrieved chunks and references are normalized into the existing retrieval contract
+6. Chunks are passed to Azure OpenAI Responses API for final answer generation
 
-> Note: Traditional mode remains the per-user security trimming proof because it explicitly passes
-> `x-ms-query-source-authorization`. Agentic mode demonstrates platform-managed retrieval orchestration.
+> Traditional mode remains the clearest proof path because its filters and ranking settings are explicit in the app. Agentic mode now forwards the same caller token to the Knowledge Base retrieve API while still demonstrating platform-managed retrieval orchestration.
 
 ## Why authorization is enforced in Search, not by the model
 
@@ -94,16 +94,16 @@ The Foundry built-in Azure AI Search tool does not support passing per-user auth
 
 ## Where `x-ms-query-source-authorization` is applied
 
-In `AzureSearchRetrievalService.RetrieveAsync()`:
+In both `AzureSearchRetrievalService.RetrieveAsync()` and `AgenticRetrievalService.RetrieveAsync()`:
 
 ```csharp
 if (userToken is not null)
 {
-    request.Headers.Add("x-ms-query-source-authorization", $"Bearer {userToken}");
+  request.Headers.Add("x-ms-query-source-authorization", userToken);
 }
 ```
 
-This header is **only** added for authenticated users. Anonymous users never have this header set, and they query a separate public index.
+This header is **only** added for authenticated users. Anonymous users never have this header set, and they stay on the public retrieval path.
 
 ## Anonymous Bing Fallback
 

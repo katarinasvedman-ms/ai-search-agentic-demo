@@ -122,9 +122,9 @@ public sealed class ChatOrchestrator
         }
 
         // Step 6: Assemble response
-        var responseCitations = generationResult.Citations.Length > 0
-            ? generationResult.Citations
-            : retrievalResult.Citations;
+        var responseCitations = ShouldPreferRetrievalCitations(generationResult.Citations, retrievalResult.Citations)
+            ? retrievalResult.Citations
+            : generationResult.Citations;
 
         _logger.LogInformation("Orchestration complete. Citations={CitationCount}",
             responseCitations.Length);
@@ -184,6 +184,23 @@ public sealed class ChatOrchestrator
         }
 
         return isAuthenticated ? "user" : "guest";
+    }
+
+    private static bool ShouldPreferRetrievalCitations(Citation[] generationCitations, Citation[] retrievalCitations)
+    {
+        if (generationCitations.Length == 0)
+        {
+            return retrievalCitations.Length > 0;
+        }
+
+        var allGenerationCitationsAreWeak = generationCitations.All(IsWeakCitation);
+        return allGenerationCitationsAreWeak && retrievalCitations.Length > 0;
+    }
+
+    private static bool IsWeakCitation(Citation citation)
+    {
+        return string.IsNullOrWhiteSpace(citation.Url)
+            && string.Equals(citation.Title?.Trim(), "Knowledge base result", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<RetrievalResult> RetrieveAnonymousAsync(string query, CancellationToken ct)
