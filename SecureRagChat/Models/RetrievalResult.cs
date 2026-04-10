@@ -6,5 +6,6 @@ public sealed class RetrievalResult
     public required RetrievalPlane Plane { get; set; }
     public required RetrievalSource Source { get; set; }
     public Citation[] Citations { get; set; } = [];
+    public string? AgenticAnswer { get; set; }
     public int ChunkCount => Chunks.Length;
 }

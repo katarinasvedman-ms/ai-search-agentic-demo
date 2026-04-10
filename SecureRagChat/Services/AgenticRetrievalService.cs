@@ -21,17 +21,20 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly AgenticRetrievalOptions _options;
     private readonly TokenCredential _credential;
+    private readonly IDemoDocumentCatalog _documentCatalog;
     private readonly ILogger<AgenticRetrievalService> _logger;
 
     public AgenticRetrievalService(
         IHttpClientFactory httpClientFactory,
         IOptions<AgenticRetrievalOptions> options,
         TokenCredential credential,
+        IDemoDocumentCatalog documentCatalog,
         ILogger<AgenticRetrievalService> logger)
     {
         _httpClientFactory = httpClientFactory;
         _options = options.Value;
         _credential = credential;
+        _documentCatalog = documentCatalog;
         _logger = logger;
     }
 
@@ -99,7 +102,7 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
         using var response = await client.SendAsync(request, ct);
 
         if (!response.IsSuccessStatusCode &&
-            string.Equals(configuredOutputMode, "extractedData", StringComparison.OrdinalIgnoreCase))
+            string.Equals(configuredOutputMode, "extractiveData", StringComparison.OrdinalIgnoreCase))
         {
             var errorBody = await response.Content.ReadAsStringAsync(ct);
             if (MentionsInvalidOutputMode(errorBody, configuredOutputMode))
@@ -137,6 +140,7 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
             AgenticSerializerContext.Default.AgenticRetrievalResponse,
             ct);
 
+        var answer = ExtractAnswerText(apiResponse);
         var chunks = ExtractChunks(apiResponse);
         var citations = ExtractCitations(apiResponse, chunks);
 
@@ -152,7 +156,8 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
             Chunks = chunks,
             Plane = plane,
             Source = RetrievalSource.KnowledgeBase,
-            Citations = citations
+            Citations = citations,
+            AgenticAnswer = answer
         };
     }
 
@@ -227,6 +232,7 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
             AgenticSerializerContext.Default.AgenticRetrievalResponse,
             ct);
 
+        var answer = ExtractAnswerText(apiResponse);
         var chunks = ExtractChunks(apiResponse);
         var citations = ExtractCitations(apiResponse, chunks);
 
@@ -242,8 +248,18 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
             Chunks = chunks,
             Plane = plane,
             Source = RetrievalSource.KnowledgeBase,
-            Citations = citations
+            Citations = citations,
+            AgenticAnswer = answer
         };
+    }
+
+    private static string? ExtractAnswerText(AgenticRetrievalResponse? apiResponse)
+    {
+        return apiResponse?.Response?
+            .SelectMany(message => message.Content ?? [])
+            .FirstOrDefault(content => string.Equals(content.Type, "text", StringComparison.OrdinalIgnoreCase))?
+            .Text?
+            .Trim();
     }
 
     private static string NormalizeOutputMode(string? outputMode)
@@ -302,15 +318,16 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
 
         try
         {
-            var chunkData = JsonSerializer.Deserialize(contentText, AgenticSerializerContext.Default.JsonArray);
-            if (chunkData is null)
+            var root = JsonNode.Parse(contentText);
+            if (root is null)
             {
                 return [];
             }
 
-            return chunkData
-                .OfType<JsonObject>()
-                .Select((item, index) => CreateChunk(item, index))
+            var chunkNodes = ExtractChunkNodes(root);
+
+            return chunkNodes
+                .Select((node, index) => CreateChunk(node, index))
                 .Where(chunk => chunk is not null)
                 .Select(chunk => chunk!)
                 .ToArray();
@@ -329,16 +346,89 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
         }
     }
 
-    private static RetrievedChunk? CreateChunk(JsonObject item, int index)
+    private static List<JsonNode> ExtractChunkNodes(JsonNode root)
     {
-        var refId = item["ref_id"]?.GetValue<int?>()?.ToString() ?? index.ToString();
-        var title = item["title"]?.GetValue<string>()
-            ?? item["terms"]?.GetValue<string>()
+        if (root is JsonArray directArray)
+        {
+            return directArray.Where(item => item is not null).Cast<JsonNode>().ToList();
+        }
+
+        if (root is JsonObject directObject)
+        {
+            var directCandidates = ExtractArrayFromObject(directObject);
+            if (directCandidates is not null)
+            {
+                return directCandidates;
+            }
+
+            foreach (var property in directObject)
+            {
+                if (property.Value is JsonObject nestedObject)
+                {
+                    var nestedCandidates = ExtractArrayFromObject(nestedObject);
+                    if (nestedCandidates is not null)
+                    {
+                        return nestedCandidates;
+                    }
+                }
+            }
+        }
+
+        return [];
+    }
+
+    private static List<JsonNode>? ExtractArrayFromObject(JsonObject obj)
+    {
+        var candidateKeys = new[] { "chunks", "documents", "results", "items", "sources", "data" };
+
+        foreach (var key in candidateKeys)
+        {
+            if (obj.TryGetPropertyValue(key, out var value) && value is JsonArray array)
+            {
+                return array.Where(item => item is not null).Cast<JsonNode>().ToList();
+            }
+        }
+
+        return null;
+    }
+
+    private static RetrievedChunk? CreateChunk(JsonNode item, int index)
+    {
+        if (item is JsonValue value)
+        {
+            var text = value.GetValue<string?>();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return null;
+            }
+
+            return new RetrievedChunk
+            {
+                Id = index.ToString(),
+                Title = $"Knowledge base source {index + 1}",
+                Snippet = text.Trim()
+            };
+        }
+
+        if (item is not JsonObject itemObject)
+        {
+            return null;
+        }
+
+        var rawId = ExtractFirstStringByKeys(
+            itemObject,
+            ["ref_id", "id", "docId", "documentId", "key", "docKey", "sourceId"])
+            ?? index.ToString();
+
+        var refId = NormalizeDocumentId(rawId) ?? rawId;
+
+        var title = ExtractFirstStringByKeys(
+            itemObject,
+            ["title", "documentTitle", "docTitle", "name", "sourceTitle", "terms"])
             ?? $"Knowledge base source {index + 1}";
-        var content = item["content"]?.GetValue<string>()
-            ?? item["text"]?.GetValue<string>()
-            ?? item.ToJsonString();
-        var url = item["url"]?.GetValue<string>();
+        var content = ExtractFirstStringByKeys(itemObject, ["content", "text", "snippet", "chunk", "body"])
+            ?? itemObject.ToJsonString();
+        var url = ExtractFirstStringByKeys(itemObject, ["url", "sourceUrl", "uri", "documentUrl", "docUrl", "path"]);
 
         if (string.IsNullOrWhiteSpace(content))
         {
@@ -354,7 +444,7 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
         };
     }
 
-    private static Citation[] ExtractCitations(AgenticRetrievalResponse? apiResponse, RetrievedChunk[] chunks)
+    private Citation[] ExtractCitations(AgenticRetrievalResponse? apiResponse, RetrievedChunk[] chunks)
     {
         if (apiResponse?.References is null || apiResponse.References.Length == 0)
         {
@@ -366,30 +456,71 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
         foreach (var reference in apiResponse.References)
         {
             var sourceIndex = ParseSourceIndex(reference.Id, chunks);
-            var matchingChunk = sourceIndex > 0 && sourceIndex <= chunks.Length ? chunks[sourceIndex - 1] : null;
+            var fallbackSourceIndex = sourceIndex > 0 ? sourceIndex : citations.Count + 1;
             var referenceDocId = ExtractDocumentId(reference.SourceData) ?? NormalizeDocumentId(reference.DocKey);
-            var hasPlaceholderChunkTitle = string.Equals(
-                matchingChunk?.Title,
-                "Knowledge base result",
-                StringComparison.OrdinalIgnoreCase);
+            var matchingChunk = ResolveMatchingChunk(sourceIndex, referenceDocId, chunks);
+            var sourceDataTitle = ExtractFirstStringByKeys(
+                reference.SourceData,
+                [
+                    "title", "documentTitle", "docTitle", "name", "sourceTitle",
+                    "fileName", "filename", "documentName", "metadata_storage_name", "metadataTitle"
+                ]);
+            var sourceLocator = ExtractSourceLocator(reference.SourceData);
 
-            var citationTitle = !string.IsNullOrWhiteSpace(reference.DocKey)
-                ? reference.DocKey
-                : !string.IsNullOrWhiteSpace(referenceDocId)
-                    ? referenceDocId
-                : hasPlaceholderChunkTitle
-                    ? $"Knowledge base source {reference.Id ?? (citations.Count + 1).ToString()}"
-                    : matchingChunk?.Title ?? $"Knowledge base source {reference.Id}";
+            // Trust only explicit, stable IDs for canonical document mapping.
+            var resolvedDoc = !string.IsNullOrWhiteSpace(referenceDocId)
+                ? _documentCatalog.GetById(referenceDocId)
+                : null;
+
+            var directUrl = ExtractDirectUrl(reference.SourceData, matchingChunk);
+
+            var citationTitle = IsMeaningfulTitle(resolvedDoc?.Title)
+                ? resolvedDoc!.Title
+                : IsMeaningfulTitle(matchingChunk?.Title)
+                    ? matchingChunk!.Title
+                    : IsMeaningfulTitle(sourceDataTitle)
+                        ? sourceDataTitle!
+                    : IsMeaningfulTitle(reference.DocKey)
+                        ? reference.DocKey!
+                        : "Unresolved source";
+
+            if (!string.IsNullOrWhiteSpace(sourceLocator)
+                && !citationTitle.Contains(sourceLocator, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(citationTitle, "Unresolved source", StringComparison.OrdinalIgnoreCase))
+            {
+                citationTitle = $"{citationTitle}, {sourceLocator}";
+            }
+
+            var citationUrl = resolvedDoc is not null
+                ? $"/api/demo-docs/{resolvedDoc.Id}"
+                : directUrl;
 
             citations.Add(new Citation
             {
                 Title = citationTitle,
-                Url = ExtractUrl(reference.SourceData, reference.DocKey, matchingChunk) ?? matchingChunk?.Url,
+                Url = citationUrl,
                 SourceIndex = sourceIndex > 0 ? sourceIndex : citations.Count + 1
             });
         }
 
         return citations.ToArray();
+    }
+
+    private static RetrievedChunk? ResolveMatchingChunk(int sourceIndex, string? referenceDocId, RetrievedChunk[] chunks)
+    {
+        if (sourceIndex > 0 && sourceIndex <= chunks.Length)
+        {
+            return chunks[sourceIndex - 1];
+        }
+
+        if (!string.IsNullOrWhiteSpace(referenceDocId))
+        {
+            return chunks.FirstOrDefault(chunk =>
+                string.Equals(NormalizeDocumentId(chunk.Id), referenceDocId, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(NormalizeDocumentId(chunk.Title), referenceDocId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return null;
     }
 
     private static int ParseSourceIndex(string? referenceId, RetrievedChunk[] chunks)
@@ -400,10 +531,10 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
         }
 
         var sourceIndex = zeroBasedId + 1;
-        return sourceIndex <= chunks.Length ? sourceIndex : 0;
+        return sourceIndex > 0 ? sourceIndex : 0;
     }
 
-    private static string? ExtractUrl(JsonObject? sourceData, string? docKey, RetrievedChunk? matchingChunk)
+    private static string? ExtractDirectUrl(JsonObject? sourceData, RetrievedChunk? matchingChunk)
     {
         var directUrl = ExtractFirstStringByKeys(
             sourceData,
@@ -414,14 +545,7 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
             return directUrl;
         }
 
-        var docId = ExtractDocumentId(sourceData)
-            ?? NormalizeDocumentId(docKey)
-            ?? NormalizeDocumentId(matchingChunk?.Id)
-            ?? NormalizeDocumentId(matchingChunk?.Title);
-
-        return string.IsNullOrWhiteSpace(docId)
-            ? null
-            : $"/api/demo-docs/{docId}";
+        return matchingChunk?.Url;
     }
 
     private static string? ExtractDocumentId(JsonObject? sourceData)
@@ -429,7 +553,63 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
         return NormalizeDocumentId(
             ExtractFirstStringByKeys(
                 sourceData,
-                ["id", "docId", "documentId", "key", "docKey", "sourceId", "referenceId"]));
+                ["id", "docId", "documentId", "key", "docKey", "sourceId", "referenceId", "fileId", "chunkId", "path"]));
+    }
+
+    private static string? ExtractSourceLocator(JsonObject? sourceData)
+    {
+        var page = ExtractFirstStringByKeys(sourceData, ["page", "page_number", "pageNumber"]);
+        if (!string.IsNullOrWhiteSpace(page))
+        {
+            return $"page {page}";
+        }
+
+        var section = ExtractFirstStringByKeys(sourceData, ["section", "sectionName", "section_name"]);
+        if (!string.IsNullOrWhiteSpace(section))
+        {
+            return $"section {section}";
+        }
+
+        return null;
+    }
+
+    private static bool IsMeaningfulTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            return false;
+        }
+
+        var normalized = title.Trim();
+        if (normalized.Equals("Knowledge base result", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (normalized.StartsWith("Knowledge base source", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (normalized.StartsWith("Knowledge base reference", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (normalized.StartsWith("Document ", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("Source ", StringComparison.OrdinalIgnoreCase)
+            || normalized.StartsWith("Reference ", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Long prose-like strings are usually snippets or generated text, not stable source titles.
+        if (normalized.Length > 100)
+        {
+            return false;
+        }
+
+        return !int.TryParse(normalized, out _);
     }
 
     private static string? ExtractFirstStringByKeys(JsonNode? node, string[] keys)
@@ -440,7 +620,7 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
             {
                 if (obj.TryGetPropertyValue(key, out var value) && value is JsonValue jsonValue)
                 {
-                    var stringValue = jsonValue.GetValue<string?>();
+                    var stringValue = TryConvertJsonValueToString(jsonValue);
                     if (!string.IsNullOrWhiteSpace(stringValue))
                     {
                         return stringValue;
@@ -475,6 +655,41 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
         return null;
     }
 
+    private static string? TryConvertJsonValueToString(JsonValue value)
+    {
+        if (value.TryGetValue<string>(out var asString))
+        {
+            return asString;
+        }
+
+        if (value.TryGetValue<int>(out var asInt))
+        {
+            return asInt.ToString();
+        }
+
+        if (value.TryGetValue<long>(out var asLong))
+        {
+            return asLong.ToString();
+        }
+
+        if (value.TryGetValue<double>(out var asDouble))
+        {
+            return asDouble.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        if (value.TryGetValue<decimal>(out var asDecimal))
+        {
+            return asDecimal.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        if (value.TryGetValue<bool>(out var asBool))
+        {
+            return asBool ? "true" : "false";
+        }
+
+        return null;
+    }
+
     private static string? NormalizeDocumentId(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -489,21 +704,26 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
             return trimmed.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault();
         }
 
-        if (trimmed.StartsWith("ent-", StringComparison.OrdinalIgnoreCase))
+        foreach (var marker in new[] { "ent-", "pub-" })
         {
-            return trimmed;
+            if (trimmed.StartsWith(marker, StringComparison.OrdinalIgnoreCase))
+            {
+                return trimmed;
+            }
+
+            var markerIndex = trimmed.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+            if (markerIndex >= 0)
+            {
+                var suffix = trimmed[markerIndex..];
+                var id = new string(suffix.TakeWhile(c => char.IsLetterOrDigit(c) || c == '-').ToArray());
+                if (!string.IsNullOrWhiteSpace(id))
+                {
+                    return id;
+                }
+            }
         }
 
-        var marker = "ent-";
-        var markerIndex = trimmed.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-        if (markerIndex < 0)
-        {
-            return null;
-        }
-
-        var suffix = trimmed[markerIndex..];
-        var id = new string(suffix.TakeWhile(c => char.IsLetterOrDigit(c) || c == '-').ToArray());
-        return string.IsNullOrWhiteSpace(id) ? null : id;
+        return null;
     }
 }
 

@@ -33,6 +33,7 @@ This creates:
 
 - `public-index`
 - `entitled-index`
+- `agentic-index`
 
 The index schema includes a `content` field and a semantic configuration named `default` used by Traditional mode. If you have already created the indexes, recreate them before reseeding so semantic ranking and richer full-document text are both available to retrieval.
 
@@ -46,6 +47,7 @@ This uploads:
 
 - `demo-data/public-documents.json` -> `public-index`
 - `demo-data/entitled-documents.json` -> `entitled-index`
+- Combined public + entitled docs -> `agentic-index` (with ACL fields and citation-friendly metadata)
 
 The sample corpus is organized to mirror a telecom product experience:
 
@@ -70,6 +72,14 @@ Then set frontend env values in `secureragchat-web/.env`.
 Create a knowledge source and knowledge base in Azure AI Search, then set:
 
 - `AgenticRetrieval:KnowledgeBaseName`
+- `AgenticRetrieval:OutputMode=extractiveData`
+
+For stable references, configure the knowledge source `source_data_fields` to include at minimum:
+
+- `id` (stable document identifier)
+- `title` (human-readable citation label)
+- `url` (click target)
+- Optional locator such as `page_number` or `section`
 
 Suggested source material for the knowledge base is included under `demo-data/knowledge-base/`.
 

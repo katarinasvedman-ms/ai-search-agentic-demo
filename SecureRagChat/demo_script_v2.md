@@ -17,7 +17,7 @@ This room has four different people with four different questions:
 Your job is to answer all four — in that order — without it feeling like a feature checklist.
 
 > **The frame to hold throughout:**
-> *Elastic Cloud is a great search engine you build RAG on top of.
+> *Elastic is a great search engine you build RAG on top of.
 > Azure AI Search is a retrieval layer designed to be called by agents.
 > The decision is which foundation fits the applications you are planning to build.*
 
@@ -160,7 +160,7 @@ Log in as **Azure User**. Ask the same question.
 
 **Action:** Agentic mode, Azure User. Ask:
 
-> Compare Aurora RAN 6651 and Nimbus Indoor 2400 for a factory deployment.
+> For a factory rollout with outdoor yard coverage and indoor hall mobility, recommend how to use Aurora RAN 6651 and Nimbus Indoor 2400 together. Explain tradeoffs across coverage reach, timing/fronthaul dependencies, installation constraints, and operations risk, then propose a phased deployment plan.
 
 Let the answer render fully. Do not speak until it is complete.
 
@@ -168,19 +168,17 @@ Let the answer render fully. Do not speak until it is complete.
 
 > We did give the system a question. What matters here is that we did not hand-author the retrieval plan underneath it.
 >
-> This is the kind of question an agent or assistant would receive from a field engineer. The platform can decompose the question, retrieve across multiple documents, and synthesize a recommendation.
+> This is the kind of question an agent or assistant would receive from a field engineer or deployment architect. The platform can decompose the question, retrieve across multiple documents, and synthesize a recommendation with explicit tradeoffs.
 >
-> Look at the answer. It correctly identifies that Aurora handles outdoor macro coverage and Nimbus handles indoor mobility. That conclusion is not in any single document — it was reasoned across retrieved content.
+> Look at the structure of the answer, not just the conclusion. It should separate product role, constraints, and execution sequence, then justify those choices. That is the signal that the system is synthesizing across sources rather than replaying one document.
 >
 > On Elastic, you would typically get back ranked chunks and own more of the reasoning flow yourself. You pass those chunks to an LLM and depend on your retrieval, ranking, and prompt design to get the final answer right.
 >
-> Here, the knowledge base assembled the retrieval artifact before the model reasoned over it. The retrieval and the reasoning are coordinated by the platform.
+> Here, the knowledge base assembled retrieval evidence before the model reasoned over it. Retrieval and reasoning are coordinated by the platform.
 
 **Point to debug panel:**
 
-> If the panel shows a single knowledge base result, call out that it is not one document chunk. It is one assembled retrieval artifact created by the platform.
->
-> If no citation chip is shown in the answer area, say: "In Agentic mode we only show citations when the platform returns a strong document reference. For this step, the point is the retrieval orchestration, not click-through source validation."
+> If the panel shows a single knowledge base result, call out that this is an assembled retrieval artifact, not proof that one source alone answered the full question.
 >
 > This is what your internal knowledge assistant looks like when it is working correctly. A field engineer, a support agent, an HR assistant — they ask a complex question, they get a grounded answer, and the retrieval layer handled everything underneath.
 

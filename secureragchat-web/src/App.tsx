@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { sendChatRequest } from './api/chatClient';
 import {
   getAccessToken,
@@ -231,6 +232,11 @@ function App() {
   const latestResponse = latestEntry?.response;
   const latestCitations = latestResponse ? getDisplayCitations(latestResponse.citations) : [];
   const recentQueries = entries.slice(1, 4);
+  const comparisonEntries = latestEntry
+    ? entries
+      .filter((entry) => entry.query === latestEntry.query && !entry.isLoading && (entry.response || entry.error))
+      .slice(0, 6)
+    : [];
 
   return (
     <div className="search-page">
@@ -344,7 +350,9 @@ function App() {
                         <span>{formatTimestamp(latestEntry.submittedAt)}</span>
                       </div>
                       <h3>{latestEntry.query}</h3>
-                      <p>{latestResponse.answer}</p>
+                      <div className="assistant-answer markdown-answer">
+                        <ReactMarkdown>{latestResponse.answer}</ReactMarkdown>
+                      </div>
                     </article>
 
                     {shouldHideCitationBlock(latestResponse) ? (
@@ -391,6 +399,34 @@ function App() {
                     errorMessage={latestEntry?.error}
                   />
                 </section>
+
+                {isChatExpanded && comparisonEntries.length > 1 ? (
+                  <section className="diagnostics-shell compact-pane comparison-diagnostics">
+                    <div className="diagnostics-header">
+                      <p className="eyebrow">Comparison view</p>
+                      <h2>Same-question retrieval history</h2>
+                    </div>
+
+                    <div className="comparison-grid" aria-label="Traditional and agentic comparison history">
+                      {comparisonEntries.map((entry) => (
+                        <article key={`compare-${entry.id}`} className="comparison-card">
+                          <header className="comparison-card-header">
+                            <strong>{entry.retrievalMode}</strong>
+                            <span>{entry.mode === 'anonymous' ? 'Guest' : 'Azure user'}</span>
+                            <span>{formatTimestamp(entry.submittedAt)}</span>
+                          </header>
+
+                          <RetrievalDetailsPanel
+                            response={entry.response}
+                            requestedMode={entry.retrievalMode}
+                            requesterMode={entry.mode}
+                            errorMessage={entry.error}
+                          />
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
               </section>
             </aside>
           </div>

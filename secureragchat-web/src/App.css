@@ -230,6 +230,50 @@
   white-space: nowrap;
 }
 
+.markdown-answer {
+  line-height: 1.55;
+  color: #111827;
+}
+
+.markdown-answer > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-answer > *:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-answer h1,
+.markdown-answer h2,
+.markdown-answer h3,
+.markdown-answer h4 {
+  margin: 0.65rem 0 0.35rem;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.markdown-answer p {
+  margin: 0.5rem 0;
+}
+
+.markdown-answer ul,
+.markdown-answer ol {
+  margin: 0.45rem 0 0.6rem;
+  padding-left: 1.2rem;
+}
+
+.markdown-answer li {
+  margin: 0.2rem 0;
+}
+
+.markdown-answer code {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.3rem;
+  padding: 0.05rem 0.3rem;
+  font-size: 0.88em;
+}
+
 .mock-image {
   display: block;
   width: 100%;
@@ -539,6 +583,55 @@
 .embedded-diagnostics .diagnostics-header {
   padding: 0.75rem;
   border-bottom: 1px solid #eaecf0;
+}
+
+.comparison-diagnostics {
+  margin-top: 0.7rem;
+  border: 1px solid #eaecf0;
+  border-radius: 0.82rem;
+  background: #fcfcfd;
+  box-shadow: none;
+}
+
+.comparison-diagnostics .diagnostics-header {
+  padding: 0.75rem;
+  border-bottom: 1px solid #eaecf0;
+}
+
+.comparison-grid {
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.comparison-card {
+  border: 1px solid #eaecf0;
+  border-radius: 0.7rem;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.comparison-card .retrieval-panel {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.comparison-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.6rem 0.7rem;
+  border-bottom: 1px solid #eaecf0;
+  background: #f8fafc;
+  color: #344054;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.comparison-card-header strong {
+  color: #0f172a;
 }
 
 @keyframes pulse {

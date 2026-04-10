@@ -1,6 +1,8 @@
 using SecureRagChat.Auth;
 using SecureRagChat.Models;
 using SecureRagChat.Services;
+using System.Text.RegularExpressions;
+using System.Text.Json;
 
 namespace SecureRagChat.Orchestration;
 
@@ -54,13 +56,69 @@ public sealed class ChatOrchestrator
         _logger.LogInformation("Selected retrieval plane: {Plane}", plane);
 
         // Step 3: Retrieve — authorization enforced by Azure AI Search for entitled content.
-        // Anonymous requests can fall back to Bing, but retrieval still happens before generation.
         RetrievalResult retrievalResult;
         if (mode == RetrievalMode.Agentic)
         {
             try
             {
                 retrievalResult = await _agenticRetrievalService.RetrieveAsync(request.Query, plane, effectiveToken, ct);
+
+                _logger.LogInformation("Retrieval complete: {ChunkCount} chunks from {Plane} via {Source}",
+                    retrievalResult.ChunkCount, retrievalResult.Plane, retrievalResult.Source);
+
+                if (retrievalResult.ChunkCount == 0)
+                {
+                    _logger.LogWarning("No chunks retrieved. Returning fallback response.");
+                    return BuildNoChunkResponse(request.Query, mode, retrievalResult, isAuthenticated);
+                }
+
+                var answer = string.IsNullOrWhiteSpace(retrievalResult.AgenticAnswer)
+                    ? "I don't know based on the available information."
+                    : retrievalResult.AgenticAnswer;
+
+                var citationSelectionText = answer;
+
+                if (LooksLikeExtractiveJson(answer))
+                {
+                    try
+                    {
+                        var synthesis = await _responsesApiService.GenerateAsync(
+                            request.Query,
+                            retrievalResult.Chunks,
+                            ct);
+
+                        answer = synthesis.Answer;
+                    }
+                    catch (Exception synthesisEx)
+                    {
+                        _logger.LogWarning(
+                            synthesisEx,
+                            "Agentic extractive payload synthesis failed. Falling back to direct answer text.");
+                    }
+                }
+
+                answer = SanitizeAgenticAnswer(answer);
+
+                if (string.IsNullOrWhiteSpace(answer))
+                {
+                    answer = "I don't know based on the available information.";
+                }
+
+                var isNoAnswerAgentic = IsNoAnswerResponse(answer);
+                var responseCitationsAgentic = isNoAnswerAgentic
+                    ? []
+                    : SelectAgenticCitationsByAnswerReferences(citationSelectionText, retrievalResult.Citations);
+
+                _logger.LogInformation("Orchestration complete (agentic direct). Citations={CitationCount}",
+                    responseCitationsAgentic.Length);
+
+                return BuildChatResponse(
+                    request.Query,
+                    answer,
+                    responseCitationsAgentic,
+                    mode,
+                    retrievalResult,
+                    isAuthenticated);
             }
             catch (Exception ex)
             {
@@ -92,23 +150,10 @@ public sealed class ChatOrchestrator
         if (retrievalResult.ChunkCount == 0)
         {
             _logger.LogWarning("No chunks retrieved. Returning fallback response.");
-            return new ChatResponse
-            {
-                Answer = "I don't have relevant information to answer your question.",
-                RetrievalPlane = retrievalResult.Plane,
-                Citations = [],
-                Diagnostics = new ChatDiagnostics
-                {
-                    ChunkCount = 0,
-                    IsAuthenticated = isAuthenticated,
-                    RetrievalMode = mode,
-                    RetrievalSource = retrievalResult.Source
-                },
-                RetrievalDetails = BuildRetrievalDetails(request.Query, mode, retrievalResult, isAuthenticated)
-            };
+            return BuildNoChunkResponse(request.Query, mode, retrievalResult, isAuthenticated);
         }
 
-        // Step 5: Generate — model receives ONLY authorized chunks
+        // Step 5: Generate — traditional mode model call with authorized chunks
         GenerationResult generationResult;
         try
         {
@@ -122,26 +167,64 @@ public sealed class ChatOrchestrator
         }
 
         // Step 6: Assemble response
-        var responseCitations = ShouldPreferRetrievalCitations(generationResult.Citations, retrievalResult.Citations)
-            ? retrievalResult.Citations
-            : generationResult.Citations;
+        var isNoAnswer = IsNoAnswerResponse(generationResult.Answer);
+
+        var responseCitations = isNoAnswer
+            ? []
+            : ShouldPreferRetrievalCitations(generationResult.Citations, retrievalResult.Citations)
+                ? retrievalResult.Citations
+                : generationResult.Citations;
 
         _logger.LogInformation("Orchestration complete. Citations={CitationCount}",
             responseCitations.Length);
 
+        return BuildChatResponse(
+            request.Query,
+            generationResult.Answer,
+            responseCitations,
+            mode,
+            retrievalResult,
+            isAuthenticated);
+    }
+
+    private static ChatResponse BuildNoChunkResponse(
+        string query,
+        RetrievalMode mode,
+        RetrievalResult retrievalResult,
+        bool isAuthenticated)
+    {
+        return BuildChatResponse(
+            query,
+            "I don't have relevant information to answer your question.",
+            [],
+            mode,
+            retrievalResult,
+            isAuthenticated,
+            chunkCountOverride: 0);
+    }
+
+    private static ChatResponse BuildChatResponse(
+        string query,
+        string answer,
+        Citation[] citations,
+        RetrievalMode mode,
+        RetrievalResult retrievalResult,
+        bool isAuthenticated,
+        int? chunkCountOverride = null)
+    {
         return new ChatResponse
         {
-            Answer = generationResult.Answer,
+            Answer = answer,
             RetrievalPlane = retrievalResult.Plane,
-            Citations = responseCitations,
+            Citations = citations,
             Diagnostics = new ChatDiagnostics
             {
-                ChunkCount = retrievalResult.ChunkCount,
+                ChunkCount = chunkCountOverride ?? retrievalResult.ChunkCount,
                 IsAuthenticated = isAuthenticated,
                 RetrievalMode = mode,
                 RetrievalSource = retrievalResult.Source
             },
-            RetrievalDetails = BuildRetrievalDetails(request.Query, mode, retrievalResult, isAuthenticated)
+            RetrievalDetails = BuildRetrievalDetails(query, mode, retrievalResult, isAuthenticated)
         };
     }
 
@@ -193,14 +276,141 @@ public sealed class ChatOrchestrator
             return retrievalCitations.Length > 0;
         }
 
-        var allGenerationCitationsAreWeak = generationCitations.All(IsWeakCitation);
-        return allGenerationCitationsAreWeak && retrievalCitations.Length > 0;
+        return false;
     }
 
-    private static bool IsWeakCitation(Citation citation)
+    private static bool IsNoAnswerResponse(string? answer)
     {
-        return string.IsNullOrWhiteSpace(citation.Url)
-            && string.Equals(citation.Title?.Trim(), "Knowledge base result", StringComparison.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(answer))
+        {
+            return false;
+        }
+
+        var normalizedAnswer = answer.Trim().ToLowerInvariant();
+        return normalizedAnswer == "i don't know based on the available information."
+            || normalizedAnswer == "i don't have relevant information to answer your question.";
+    }
+
+    private static Citation[] SelectAgenticCitationsByAnswerReferences(string answer, Citation[] citations)
+    {
+        if (citations.Length == 0)
+        {
+            return [];
+        }
+
+        var referencedSourceIndexes = new HashSet<int>();
+
+        var refIdMatches = Regex.Matches(answer, @"\[\s*ref_id\s*:\s*(\d+)\s*\]", RegexOptions.IgnoreCase);
+        foreach (Match match in refIdMatches)
+        {
+            if (int.TryParse(match.Groups[1].Value, out var zeroBased))
+            {
+                referencedSourceIndexes.Add(zeroBased + 1);
+            }
+        }
+
+        var sourceMatches = Regex.Matches(answer, @"\[\s*Source\s+(\d+)\s*\]", RegexOptions.IgnoreCase);
+        foreach (Match match in sourceMatches)
+        {
+            if (int.TryParse(match.Groups[1].Value, out var oneBased) && oneBased > 0)
+            {
+                referencedSourceIndexes.Add(oneBased);
+            }
+        }
+
+        if (referencedSourceIndexes.Count == 0)
+        {
+            return citations;
+        }
+
+        var filtered = citations
+            .Where(citation => referencedSourceIndexes.Contains(citation.SourceIndex))
+            .ToArray();
+
+        return filtered.Length > 0 ? filtered : citations;
+    }
+
+    private static bool LooksLikeExtractiveJson(string? answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer))
+        {
+            return false;
+        }
+
+        var trimmed = answer.TrimStart();
+        if (!trimmed.StartsWith("[", StringComparison.Ordinal)
+            && !trimmed.StartsWith("{", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(answer);
+            return doc.RootElement.ValueKind is JsonValueKind.Array or JsonValueKind.Object;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static string SanitizeAgenticAnswer(string? answer)
+    {
+        if (string.IsNullOrWhiteSpace(answer))
+        {
+            return string.Empty;
+        }
+
+        var normalized = answer.Replace("\r\n", "\n").Replace('\r', '\n');
+        var lines = normalized.Split('\n').ToList();
+
+        var referencesHeadingIndex = lines.FindIndex(line => IsReferenceAppendixHeading(line.Trim()));
+
+        if (referencesHeadingIndex >= 0)
+        {
+            lines = lines.Take(referencesHeadingIndex).ToList();
+        }
+
+        var cleanedLines = lines
+            .Select(line => line.TrimEnd())
+            .Where(line => !line.Trim().Equals("N/A", StringComparison.OrdinalIgnoreCase))
+            .Where(line => !Regex.IsMatch(line.Trim(), @"^\[\s*ref_id\s*:\s*\d+\s*\]$", RegexOptions.IgnoreCase))
+            .ToList();
+
+        var cleaned = string.Join("\n", cleanedLines);
+        cleaned = Regex.Replace(cleaned, @"\[\s*ref_id\s*:\s*\d+\s*\]", string.Empty, RegexOptions.IgnoreCase);
+        cleaned = Regex.Replace(cleaned, @"\n{3,}", "\n\n");
+
+        return cleaned.Trim();
+    }
+
+    private static bool IsReferenceAppendixHeading(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return false;
+        }
+
+        var normalized = line.Trim();
+
+        if (normalized.StartsWith("#", StringComparison.Ordinal))
+        {
+            normalized = normalized.TrimStart('#').Trim();
+        }
+
+        if (normalized.EndsWith(":", StringComparison.Ordinal))
+        {
+            normalized = normalized[..^1].TrimEnd();
+        }
+
+        if (normalized.Equals("Reference", StringComparison.OrdinalIgnoreCase)
+            || normalized.Equals("References", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return Regex.IsMatch(normalized, @"^Sources\s*\(\d+\)$", RegexOptions.IgnoreCase);
     }
 
     private async Task<RetrievalResult> RetrieveAnonymousAsync(string query, CancellationToken ct)

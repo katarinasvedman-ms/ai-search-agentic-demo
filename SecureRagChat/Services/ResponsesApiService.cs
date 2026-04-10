@@ -22,7 +22,12 @@ public sealed class ResponsesApiService : IResponsesApiService
         - Use ONLY the provided context to answer.
         - Include citations as [Source N] where N corresponds to the source number.
         - Never make up information not present in the context.
-        - Be concise and direct.
+                - Prefer clear, decision-ready structure over raw excerpts.
+                - For recommendation/planning questions, use this structure:
+                    1) Recommendation summary
+                    2) Tradeoffs (coverage, timing/fronthaul, installation, operations risk)
+                    3) Phased deployment plan (Phase 1, Phase 2, Phase 3)
+                - Keep each claim grounded with citations.
         """;
 
     private readonly IHttpClientFactory _httpClientFactory;

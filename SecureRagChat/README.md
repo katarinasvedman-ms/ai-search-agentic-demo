@@ -188,6 +188,12 @@ Update `appsettings.json` with your Azure resource details:
 ### 1b. Azure AI Search Agentic Retrieval
 - Create a Knowledge Source and Knowledge Base in the same Search service
 - Set `AgenticRetrieval:KnowledgeBaseName` to that KB name
+- Set `AgenticRetrieval:OutputMode` to `extractiveData`
+- In the knowledge source, include citation-friendly `source_data_fields` such as:
+  - `id`
+  - `title`
+  - `url`
+  - optional locator (`page_number` or `section`)
 - Ensure the backend identity can call the KB retrieve endpoint
 
 ### 2. Entra ID (Azure AD)

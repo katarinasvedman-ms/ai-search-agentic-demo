@@ -88,8 +88,8 @@
     "title": "Aurora vs Nimbus Coverage Planning Notes",
     "url": "/api/demo-docs/ent-007",
     "category": "planning",
-    "snippet": "Aurora RAN 6651 is recommended for macro outdoor layers and wide-area capacity expansion, while Nimbus Indoor 2400 is intended for indoor mobility, floor-level coverage shaping, and high-density venue design. The planning note compares mounting constraints, power assumptions, and handoff boundaries between the two product families.",
-    "content": "Aurora RAN 6651 is recommended for macro outdoor layers, suburban expansion, and outdoor capacity reinforcement where broad coverage and transport-integrated timing are required. Nimbus Indoor 2400 is recommended for indoor mobility, floor-level shaping, and high-density venues where zone-by-zone design matters more than broad outdoor reach.\n\nThe planning note compares mounting constraints, power assumptions, and handoff boundaries between the two product families. It is used during architecture reviews to determine whether a deployment should remain macro-led, indoor-led, or use a layered combination of both approaches.",
+    "snippet": "This planning note defines comparison criteria for mixed indoor and outdoor coverage designs, including perimeter reach, indoor mobility density, mounting constraints, timing dependencies, and handoff boundary design. It is intended as an evaluation framework, not a product recommendation.",
+    "content": "The planning note defines a decision framework for comparing coverage approaches in mixed indoor and outdoor deployments. Teams evaluate perimeter reach targets, indoor mobility density, mounting constraints, power availability, timing dependencies, and handoff boundaries before selecting product roles.\n\nThe document does not prescribe a single winner. Instead, it lists decision checkpoints and required validation inputs, then points architects to detailed product and deployment references for final selection. It is used during architecture reviews to structure comparison discussions and identify where additional evidence is required.",
     "authorizedUsers": [
       "c0fc87cc-fb63-4bdf-abfa-f476a92dfecf"
     ],
