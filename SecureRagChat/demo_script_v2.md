@@ -155,7 +155,31 @@ Log in as **Azure User**. Ask the same question.
 
 ---
 
-## Step 5 — The Climax: An Agent Query (2 min)
+## Step 5 — Bridge Question: Product Fit for Factory Deployment (60 sec)
+### *For: Product Owner, Architect*
+
+**Action:** Stay in **Agentic mode**, Azure User. Ask:
+
+> Compare Aurora RAN 6651 and Nimbus Indoor 2400 for a factory deployment.
+
+Let the answer render.
+
+**Say:**
+
+> This is a compact architecture question your field and solution teams ask constantly.
+>
+> It forces the system to compare deployment intent, not just repeat a single spec sheet.
+>
+> Use this as the transition from "platform-managed retrieval" to "platform-supported recommendation reasoning."
+
+**Debug panel:**
+- Knowledge base: **used**
+- Authorization: **entitled user**
+- Citation: **confirm references are still grounded**
+
+---
+
+## Step 6 — The Climax: An Agent Query (2 min)
 ### *For: Everyone — this is the moment the room shifts*
 
 **Action:** Agentic mode, Azure User. Ask:
@@ -190,7 +214,7 @@ Let the answer render fully. Do not speak until it is complete.
 
 ---
 
-## Step 6 — Grounded Failure: The Trust Signal (30 sec)
+## Step 7 — Grounded Failure: The Trust Signal (30 sec)
 ### *For: Security / Compliance, CTO*
 
 **Action:** Agentic mode. Ask:
@@ -211,7 +235,7 @@ Let the answer render fully. Do not speak until it is complete.
 
 ---
 
-## Close (45 sec)
+## Step 8 — Close (45 sec)
 
 **Do not summarize features. Close on the decision.**
 

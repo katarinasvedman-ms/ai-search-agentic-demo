@@ -23,8 +23,6 @@ builder.Services.Configure<AzureSearchOptions>(
     builder.Configuration.GetSection(AzureSearchOptions.SectionName));
 builder.Services.Configure<AzureOpenAIOptions>(
     builder.Configuration.GetSection(AzureOpenAIOptions.SectionName));
-builder.Services.Configure<BingSearchOptions>(
-    builder.Configuration.GetSection(BingSearchOptions.SectionName));
 builder.Services.Configure<AgenticRetrievalOptions>(
     builder.Configuration.GetSection(AgenticRetrievalOptions.SectionName));
 
@@ -37,7 +35,6 @@ builder.Services.AddSingleton<TokenCredential>(
 // --- HTTP clients ---
 builder.Services.AddHttpClient("AzureSearch");
 builder.Services.AddHttpClient("AzureOpenAI");
-builder.Services.AddHttpClient("BingSearch");
 builder.Services.AddHttpClient("AgenticRetrieval");
 
 // --- Core services ---
@@ -46,7 +43,6 @@ builder.Services.AddSingleton<IDevelopmentUserTokenProvider, DevelopmentAzureCli
 builder.Services.AddScoped<UserTokenAccessor>();
 builder.Services.AddSingleton<IRetrievalService, AzureSearchRetrievalService>();
 builder.Services.AddSingleton<IAgenticRetrievalService, AgenticRetrievalService>();
-builder.Services.AddSingleton<IBingRetrievalService, BingRetrievalService>();
 builder.Services.AddSingleton<IResponsesApiService, ResponsesApiService>();
 builder.Services.AddSingleton<IDemoDocumentCatalog, DemoDocumentCatalog>();
 

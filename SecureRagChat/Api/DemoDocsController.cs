@@ -1,7 +1,6 @@
 using System.Net;
 using System.Security.Claims;
 using System.Text;
-using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -47,81 +46,6 @@ public sealed class DemoDocsController : ControllerBase
         }
 
       return Content(BuildHtml(doc, User, isDemoAuthenticated), "text/html", Encoding.UTF8);
-    }
-
-    [HttpGet("resolve")]
-    public IActionResult ResolveDocument([FromQuery] string? title, [FromQuery] string? snippet, [FromQuery] int? sourceIndex)
-    {
-      if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(snippet))
-      {
-        return BadRequest("Either title or snippet is required.");
-      }
-
-      var doc = _catalog.FindBestMatch(title, snippet);
-
-      if (doc is null)
-      {
-        var fallbackIndex = sourceIndex ?? TryParseDocumentOrdinal(title);
-        if (fallbackIndex is > 0)
-        {
-          var preferEntitled = IsDemoAuthenticated();
-          doc = ResolveByOrdinalFallback(fallbackIndex.Value, preferEntitled);
-        }
-      }
-
-      if (doc is null)
-      {
-        return NotFound("Unable to resolve source to a known demo document.");
-      }
-
-      var isDemoAuthenticated = IsDemoAuthenticated();
-      if (doc.RequiresAuthentication && !isDemoAuthenticated)
-      {
-        Response.StatusCode = StatusCodes.Status401Unauthorized;
-        return Content("<html><body><h1>Sign-in required</h1><p>This document is available only in the authenticated demo flow.</p></body></html>", "text/html");
-      }
-
-      var targetPath = $"/api/demo-docs/{doc.Id}";
-      if (string.Equals(HttpContext.Request.Query["demoAuth"], "1", StringComparison.Ordinal))
-      {
-        targetPath += "?demoAuth=1";
-      }
-
-      return Redirect(targetPath);
-    }
-
-    private DemoDocumentEntry? ResolveByOrdinalFallback(int sourceIndex, bool preferEntitled)
-    {
-      if (sourceIndex <= 0)
-      {
-        return null;
-      }
-
-      var entitledId = $"ent-{sourceIndex:000}";
-      var publicId = $"pub-{sourceIndex:000}";
-
-      if (preferEntitled)
-      {
-        return _catalog.GetById(entitledId) ?? _catalog.GetById(publicId);
-      }
-
-      return _catalog.GetById(publicId) ?? _catalog.GetById(entitledId);
-    }
-
-    private static int? TryParseDocumentOrdinal(string? title)
-    {
-      if (string.IsNullOrWhiteSpace(title))
-      {
-        return null;
-      }
-
-      var match = Regex.Match(title, @"\b(?:document|source|reference)\s*(\d+)\b", RegexOptions.IgnoreCase);
-      if (!match.Success)
-      {
-        return null;
-      }
-
-      return int.TryParse(match.Groups[1].Value, out var value) ? value : null;
     }
 
     private bool IsDemoAuthenticated()

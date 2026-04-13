@@ -13,8 +13,6 @@ namespace SecureRagChat.Services;
 
 public sealed class AgenticRetrievalService : IAgenticRetrievalService
 {
-    private const string FallbackOutputMode = "answerSynthesis";
-
     private static readonly TokenRequestContext SearchTokenContext =
         new(["https://search.azure.com/.default"]);
 
@@ -73,7 +71,7 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
             _logger.LogInformation("Calling knowledge base retrieve API without caller token; public content only.");
         }
 
-        var configuredOutputMode = NormalizeOutputMode(_options.OutputMode);
+        // Use knowledge base defaults for output mode and retrieval reasoning unless an override is needed.
         var requestBody = new AgenticRetrievalRequest
         {
             Messages =
@@ -84,11 +82,6 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
                     Content = [new AgenticMessageContent { Type = "text", Text = query }]
                 }
             ],
-            RetrievalReasoningEffort = new AgenticReasoningEffort
-            {
-                Kind = _options.RetrievalReasoningEffort
-            },
-            OutputMode = configuredOutputMode,
             IncludeActivity = _options.IncludeActivity,
             MaxOutputSize = _options.MaxOutputSize,
             MaxRuntimeInSeconds = _options.MaxRuntimeInSeconds
@@ -100,32 +93,6 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
         request.Content = new StringContent(requestPayload, Encoding.UTF8, "application/json");
 
         using var response = await client.SendAsync(request, ct);
-
-        if (!response.IsSuccessStatusCode &&
-            string.Equals(configuredOutputMode, "extractiveData", StringComparison.OrdinalIgnoreCase))
-        {
-            var errorBody = await response.Content.ReadAsStringAsync(ct);
-            if (MentionsInvalidOutputMode(errorBody, configuredOutputMode))
-            {
-                _logger.LogWarning(
-                    "Knowledge base retrieve rejected outputMode '{OutputMode}'. Retrying with '{FallbackOutputMode}'.",
-                    configuredOutputMode,
-                    FallbackOutputMode);
-
-                return await RetryWithOutputModeAsync(
-                    client,
-                    requestUrl,
-                    query,
-                    plane,
-                    userToken,
-                    configuredOutputMode,
-                    FallbackOutputMode,
-                    ct);
-            }
-
-            _logger.LogError("Knowledge base retrieve returned {StatusCode}: {Body}", (int)response.StatusCode, errorBody);
-            throw new HttpRequestException($"Knowledge base retrieve returned {(int)response.StatusCode}");
-        }
 
         if (response.StatusCode is not HttpStatusCode.OK and not HttpStatusCode.PartialContent)
         {
@@ -161,98 +128,6 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
         };
     }
 
-    private async Task<RetrievalResult> RetryWithOutputModeAsync(
-        HttpClient client,
-        string requestUrl,
-        string query,
-        RetrievalPlane plane,
-        string? userToken,
-        string originalOutputMode,
-        string retryOutputMode,
-        CancellationToken ct)
-    {
-        using var retryRequest = new HttpRequestMessage(HttpMethod.Post, requestUrl);
-
-        if (!string.IsNullOrWhiteSpace(_options.ApiKey))
-        {
-            retryRequest.Headers.Add("api-key", _options.ApiKey);
-        }
-        else
-        {
-            var serviceToken = await _credential.GetTokenAsync(SearchTokenContext, ct);
-            retryRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", serviceToken.Token);
-        }
-
-        if (plane == RetrievalPlane.Entitled && !string.IsNullOrWhiteSpace(userToken))
-        {
-            retryRequest.Headers.Add("x-ms-query-source-authorization", userToken);
-        }
-
-        var retryBody = new AgenticRetrievalRequest
-        {
-            Messages =
-            [
-                new AgenticMessage
-                {
-                    Role = "user",
-                    Content = [new AgenticMessageContent { Type = "text", Text = query }]
-                }
-            ],
-            RetrievalReasoningEffort = new AgenticReasoningEffort
-            {
-                Kind = _options.RetrievalReasoningEffort
-            },
-            OutputMode = retryOutputMode,
-            IncludeActivity = _options.IncludeActivity,
-            MaxOutputSize = _options.MaxOutputSize,
-            MaxRuntimeInSeconds = _options.MaxRuntimeInSeconds
-        };
-
-        retryRequest.Content = new StringContent(
-            JsonSerializer.Serialize(retryBody, AgenticSerializerContext.Default.AgenticRetrievalRequest),
-            Encoding.UTF8,
-            "application/json");
-
-        using var retryResponse = await client.SendAsync(retryRequest, ct);
-        if (retryResponse.StatusCode is not HttpStatusCode.OK and not HttpStatusCode.PartialContent)
-        {
-            var retryErrorBody = await retryResponse.Content.ReadAsStringAsync(ct);
-            _logger.LogError(
-                "Knowledge base retrieve retry returned {StatusCode}. OriginalOutputMode={OriginalOutputMode}, RetryOutputMode={RetryOutputMode}, Body={Body}",
-                (int)retryResponse.StatusCode,
-                originalOutputMode,
-                retryOutputMode,
-                retryErrorBody);
-            throw new HttpRequestException($"Knowledge base retrieve returned {(int)retryResponse.StatusCode}");
-        }
-
-        var retryResponseStream = await retryResponse.Content.ReadAsStreamAsync(ct);
-        var apiResponse = await JsonSerializer.DeserializeAsync(
-            retryResponseStream,
-            AgenticSerializerContext.Default.AgenticRetrievalResponse,
-            ct);
-
-        var answer = ExtractAnswerText(apiResponse);
-        var chunks = ExtractChunks(apiResponse);
-        var citations = ExtractCitations(apiResponse, chunks);
-
-        LogActivity(apiResponse);
-        _logger.LogInformation(
-            "Agentic retrieval completed after output mode fallback. KnowledgeBase={KnowledgeBase}, ChunkCount={ChunkCount}, CitationCount={CitationCount}",
-            _options.KnowledgeBaseName,
-            chunks.Length,
-            citations.Length);
-
-        return new RetrievalResult
-        {
-            Chunks = chunks,
-            Plane = plane,
-            Source = RetrievalSource.KnowledgeBase,
-            Citations = citations,
-            AgenticAnswer = answer
-        };
-    }
-
     private static string? ExtractAnswerText(AgenticRetrievalResponse? apiResponse)
     {
         return apiResponse?.Response?
@@ -260,22 +135,6 @@ public sealed class AgenticRetrievalService : IAgenticRetrievalService
             .FirstOrDefault(content => string.Equals(content.Type, "text", StringComparison.OrdinalIgnoreCase))?
             .Text?
             .Trim();
-    }
-
-    private static string NormalizeOutputMode(string? outputMode)
-    {
-        return string.IsNullOrWhiteSpace(outputMode) ? FallbackOutputMode : outputMode.Trim();
-    }
-
-    private static bool MentionsInvalidOutputMode(string errorBody, string outputMode)
-    {
-        if (string.IsNullOrWhiteSpace(errorBody))
-        {
-            return false;
-        }
-
-        return errorBody.Contains("Requested value", StringComparison.OrdinalIgnoreCase)
-            && errorBody.Contains(outputMode, StringComparison.OrdinalIgnoreCase);
     }
 
     private void LogActivity(AgenticRetrievalResponse? apiResponse)
@@ -731,12 +590,6 @@ internal sealed class AgenticRetrievalRequest
 {
     [JsonPropertyName("messages")]
     public required AgenticMessage[] Messages { get; set; }
-
-    [JsonPropertyName("retrievalReasoningEffort")]
-    public required AgenticReasoningEffort RetrievalReasoningEffort { get; set; }
-
-    [JsonPropertyName("outputMode")]
-    public required string OutputMode { get; set; }
 
     [JsonPropertyName("includeActivity")]
     public bool IncludeActivity { get; set; }

@@ -4,7 +4,6 @@ param(
 
   [string]$PublicIndexName = 'public-index',
   [string]$EntitledIndexName = 'entitled-index',
-  [string]$AgenticIndexName = 'agentic-index',
   [string]$PublicDocsPath = './demo-data/public-documents.json',
   [string]$EntitledDocsPath = './demo-data/entitled-documents.json',
   [string]$ApiKey,
@@ -84,76 +83,7 @@ function Submit-Documents {
   }
 }
 
-function Submit-AgenticDocuments {
-  param(
-    [string]$IndexName,
-    [string]$PublicDocsPath,
-    [string]$EntitledDocsPath
-  )
-
-  if (-not (Test-Path $PublicDocsPath)) {
-    throw "Public document file not found: $PublicDocsPath"
-  }
-
-  if (-not (Test-Path $EntitledDocsPath)) {
-    throw "Entitled document file not found: $EntitledDocsPath"
-  }
-
-  $publicDocs = Get-Content -Raw -Path $PublicDocsPath | ConvertFrom-Json
-  $entitledDocs = Get-Content -Raw -Path $EntitledDocsPath | ConvertFrom-Json
-  $docs = @($publicDocs) + @($entitledDocs)
-
-  if ($null -eq $docs -or $docs.Count -eq 0) {
-    throw "No documents found for agentic seeding."
-  }
-
-  $uploadDocs = @()
-  foreach ($doc in $docs) {
-    $item = @{
-      '@search.action' = 'mergeOrUpload'
-      id = $doc.id
-      title = $doc.title
-      url = $doc.url
-      snippet = $doc.snippet
-      content = $doc.content
-      category = $doc.category
-      section = $doc.category
-      page_number = $null
-      authorizedUsers = @()
-      authorizedGroups = @()
-    }
-
-    if ($doc.PSObject.Properties.Name -contains 'authorizedUsers' -and $null -ne $doc.authorizedUsers) {
-      $item.authorizedUsers = @($doc.authorizedUsers)
-    }
-
-    if ($doc.PSObject.Properties.Name -contains 'authorizedGroups' -and $null -ne $doc.authorizedGroups) {
-      $item.authorizedGroups = @($doc.authorizedGroups)
-    }
-
-    $uploadDocs += $item
-  }
-
-  $payload = @{ value = $uploadDocs } | ConvertTo-Json -Depth 12
-  $tempPayloadPath = [System.IO.Path]::GetTempFileName()
-
-  Write-Host "Uploading $($uploadDocs.Count) document(s) to '$IndexName'..." -ForegroundColor Cyan
-
-  try {
-    Set-Content -Path $tempPayloadPath -Value $payload -Encoding utf8
-
-    Invoke-RestMethod -Method Post `
-      -Uri "$endpoint/indexes/$IndexName/docs/index`?api-version=$ApiVersion" `
-      -Headers $headers `
-      -InFile $tempPayloadPath | Out-Null
-  }
-  finally {
-    Remove-Item -Path $tempPayloadPath -ErrorAction SilentlyContinue
-  }
-}
-
 Submit-Documents -IndexName $PublicIndexName -DocsPath $PublicDocsPath
 Submit-Documents -IndexName $EntitledIndexName -DocsPath $EntitledDocsPath
-Submit-AgenticDocuments -IndexName $AgenticIndexName -PublicDocsPath $PublicDocsPath -EntitledDocsPath $EntitledDocsPath
 
 Write-Host "Document seeding completed." -ForegroundColor Green

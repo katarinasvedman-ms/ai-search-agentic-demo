@@ -22,9 +22,6 @@ param openAiModelName string = 'gpt-4.1'
 @description('OpenAI model version')
 param openAiModelVersion string = '2025-01-01'
 
-@description('Enable Bing fallback in the backend configuration output')
-param enableBingFallback bool = false
-
 var searchServiceName = toLower('srch-${namePrefix}')
 var openAiAccountName = toLower('aoai-${namePrefix}')
 var storageAccountName = toLower(replace('st${namePrefix}', '-', ''))
@@ -99,4 +96,3 @@ output openAiDeployment string = openAiDeployment.name
 output storageAccountName string = storage.name
 output suggestedPublicIndexName string = 'public-index'
 output suggestedEntitledIndexName string = 'entitled-index'
-output bingFallbackEnabled bool = enableBingFallback

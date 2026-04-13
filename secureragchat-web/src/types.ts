@@ -1,5 +1,5 @@
 export type RetrievalPlane = 'Public' | 'Entitled';
-export type RetrievalSource = 'AzureSearch' | 'Bing' | 'KnowledgeBase';
+export type RetrievalSource = 'AzureSearch' | 'KnowledgeBase';
 export type RetrievalMode = 'Traditional' | 'Agentic';
 
 export interface ChatRequest {

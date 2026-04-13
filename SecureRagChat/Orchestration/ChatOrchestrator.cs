@@ -2,20 +2,21 @@ using SecureRagChat.Auth;
 using SecureRagChat.Models;
 using SecureRagChat.Services;
 using System.Text.RegularExpressions;
-using System.Text.Json;
 
 namespace SecureRagChat.Orchestration;
 
 /// <summary>
 /// Deterministic orchestrator that coordinates the secure RAG pipeline.
-/// Flow: Auth inspection → Retrieval plane selection → Azure AI Search → Azure OpenAI → Response assembly.
+/// Flow: Auth inspection → Retrieval plane selection → Retrieval → optional model generation → Response assembly.
 /// All steps are explicit and deterministic; no autonomous tool-calling.
 /// </summary>
 public sealed class ChatOrchestrator
 {
+    private const string NoGroundedAnswer = "I don't know based on the available information.";
+    private const string NoRelevantInformation = "I don't have relevant information to answer your question.";
+
     private readonly IRetrievalService _retrievalService;
     private readonly IAgenticRetrievalService _agenticRetrievalService;
-    private readonly IBingRetrievalService _bingRetrievalService;
     private readonly IResponsesApiService _responsesApiService;
     private readonly UserTokenAccessor _tokenAccessor;
     private readonly ILogger<ChatOrchestrator> _logger;
@@ -23,14 +24,12 @@ public sealed class ChatOrchestrator
     public ChatOrchestrator(
         IRetrievalService retrievalService,
         IAgenticRetrievalService agenticRetrievalService,
-        IBingRetrievalService bingRetrievalService,
         IResponsesApiService responsesApiService,
         UserTokenAccessor tokenAccessor,
         ILogger<ChatOrchestrator> logger)
     {
         _retrievalService = retrievalService;
         _agenticRetrievalService = agenticRetrievalService;
-        _bingRetrievalService = bingRetrievalService;
         _responsesApiService = responsesApiService;
         _tokenAccessor = tokenAccessor;
         _logger = logger;
@@ -38,7 +37,7 @@ public sealed class ChatOrchestrator
 
     public async Task<ChatResponse> OrchestrateAsync(ChatRequest request, CancellationToken ct = default)
     {
-        // Step 1: Auth inspection
+        // Auth and mode context (shared by all flows)
         var allowDevelopmentFallback = request.PreferEntitledContent == true;
         var userToken = await _tokenAccessor.GetUserTokenAsync(allowDevelopmentFallback, ct);
         var isAuthenticated = _tokenAccessor.IsAuthenticated || userToken is not null;
@@ -47,113 +46,71 @@ public sealed class ChatOrchestrator
         _logger.LogInformation("Orchestration started. IsAuthenticated={IsAuth}, PreferEntitled={Prefer}, RetrievalMode={Mode}",
             isAuthenticated, request.PreferEntitledContent, mode);
 
-        // Step 2: Determine retrieval plane
-        // Use entitled plane only when authenticated AND user token is available AND not explicitly opting out
         var useEntitled = userToken is not null && request.PreferEntitledContent != false;
         var effectiveToken = useEntitled ? userToken : null;
-
         var plane = useEntitled ? RetrievalPlane.Entitled : RetrievalPlane.Public;
+
         _logger.LogInformation("Selected retrieval plane: {Plane}", plane);
 
-        // Step 3: Retrieve — authorization enforced by Azure AI Search for entitled content.
-        RetrievalResult retrievalResult;
+        // Flow 1: Agentic = single platform call to Azure AI Search Knowledge Base.
         if (mode == RetrievalMode.Agentic)
         {
+            RetrievalResult agenticRetrievalResult;
             try
             {
-                retrievalResult = await _agenticRetrievalService.RetrieveAsync(request.Query, plane, effectiveToken, ct);
-
-                _logger.LogInformation("Retrieval complete: {ChunkCount} chunks from {Plane} via {Source}",
-                    retrievalResult.ChunkCount, retrievalResult.Plane, retrievalResult.Source);
-
-                if (retrievalResult.ChunkCount == 0)
-                {
-                    _logger.LogWarning("No chunks retrieved. Returning fallback response.");
-                    return BuildNoChunkResponse(request.Query, mode, retrievalResult, isAuthenticated);
-                }
-
-                var answer = string.IsNullOrWhiteSpace(retrievalResult.AgenticAnswer)
-                    ? "I don't know based on the available information."
-                    : retrievalResult.AgenticAnswer;
-
-                var citationSelectionText = answer;
-
-                if (LooksLikeExtractiveJson(answer))
-                {
-                    try
-                    {
-                        var synthesis = await _responsesApiService.GenerateAsync(
-                            request.Query,
-                            retrievalResult.Chunks,
-                            ct);
-
-                        answer = synthesis.Answer;
-                    }
-                    catch (Exception synthesisEx)
-                    {
-                        _logger.LogWarning(
-                            synthesisEx,
-                            "Agentic extractive payload synthesis failed. Falling back to direct answer text.");
-                    }
-                }
-
-                answer = SanitizeAgenticAnswer(answer);
-
-                if (string.IsNullOrWhiteSpace(answer))
-                {
-                    answer = "I don't know based on the available information.";
-                }
-
-                var isNoAnswerAgentic = IsNoAnswerResponse(answer);
-                var responseCitationsAgentic = isNoAnswerAgentic
-                    ? []
-                    : SelectAgenticCitationsByAnswerReferences(citationSelectionText, retrievalResult.Citations);
-
-                _logger.LogInformation("Orchestration complete (agentic direct). Citations={CitationCount}",
-                    responseCitationsAgentic.Length);
-
-                return BuildChatResponse(
-                    request.Query,
-                    answer,
-                    responseCitationsAgentic,
-                    mode,
-                    retrievalResult,
-                    isAuthenticated);
+                agenticRetrievalResult = await _agenticRetrievalService.RetrieveAsync(request.Query, plane, effectiveToken, ct);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Agentic retrieval failed for plane {Plane}", plane);
                 throw;
             }
-        }
-        else if (useEntitled)
-        {
-            try
+
+            LogRetrievalComplete(agenticRetrievalResult);
+
+            if (agenticRetrievalResult.ChunkCount == 0)
             {
-                retrievalResult = await _retrievalService.RetrieveAsync(request.Query, effectiveToken, ct);
+                _logger.LogWarning("No chunks retrieved. Returning fallback response.");
+                return BuildNoChunkResponse(request.Query, mode, agenticRetrievalResult, isAuthenticated);
             }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Retrieval failed for plane {Plane}", plane);
-                throw;
-            }
-        }
-        else
-        {
-            retrievalResult = await RetrieveAnonymousAsync(request.Query, ct);
+
+            var rawAnswer = NormalizeAnswerOrFallback(agenticRetrievalResult.AgenticAnswer);
+            var answer = NormalizeAnswerOrFallback(SanitizeAgenticAnswer(rawAnswer));
+            var agenticResponseCitations = SelectAgenticResponseCitations(rawAnswer, answer, agenticRetrievalResult.Citations);
+
+            _logger.LogInformation("Orchestration complete (agentic only). Citations={CitationCount}",
+                agenticResponseCitations.Length);
+
+            return BuildChatResponse(
+                request.Query,
+                answer,
+                agenticResponseCitations,
+                mode,
+                agenticRetrievalResult,
+                isAuthenticated);
         }
 
-        _logger.LogInformation("Retrieval complete: {ChunkCount} chunks from {Plane} via {Source}",
-            retrievalResult.ChunkCount, retrievalResult.Plane, retrievalResult.Source);
+        // Flow 2: Traditional elevated (entitled) = Azure Search retrieve with user token + model generation.
+        // Flow 3: Traditional public = Azure Search retrieve without user token + model generation.
+        RetrievalResult retrievalResult;
+        try
+        {
+            retrievalResult = await _retrievalService.RetrieveAsync(request.Query, effectiveToken, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Retrieval failed for plane {Plane}", plane);
+            throw;
+        }
 
-        // Step 4: Guard — if no chunks, return early
+        LogRetrievalComplete(retrievalResult);
+
         if (retrievalResult.ChunkCount == 0)
         {
             _logger.LogWarning("No chunks retrieved. Returning fallback response.");
             return BuildNoChunkResponse(request.Query, mode, retrievalResult, isAuthenticated);
         }
 
-        // Step 5: Generate — traditional mode model call with authorized chunks
         GenerationResult generationResult;
         try
         {
@@ -166,7 +123,6 @@ public sealed class ChatOrchestrator
             throw;
         }
 
-        // Step 6: Assemble response
         var isNoAnswer = IsNoAnswerResponse(generationResult.Answer);
 
         var responseCitations = isNoAnswer
@@ -187,6 +143,12 @@ public sealed class ChatOrchestrator
             isAuthenticated);
     }
 
+    private void LogRetrievalComplete(RetrievalResult retrievalResult)
+    {
+        _logger.LogInformation("Retrieval complete: {ChunkCount} chunks from {Plane} via {Source}",
+            retrievalResult.ChunkCount, retrievalResult.Plane, retrievalResult.Source);
+    }
+
     private static ChatResponse BuildNoChunkResponse(
         string query,
         RetrievalMode mode,
@@ -195,7 +157,7 @@ public sealed class ChatOrchestrator
     {
         return BuildChatResponse(
             query,
-            "I don't have relevant information to answer your question.",
+            NoRelevantInformation,
             [],
             mode,
             retrievalResult,
@@ -256,7 +218,7 @@ public sealed class ChatOrchestrator
             return "Knowledge base";
         }
 
-        return source == RetrievalSource.Bing ? "Web fallback" : "Semantic ranking";
+        return "Semantic ranking";
     }
 
     private static string ResolveAuthorizationLabel(RetrievalPlane plane, bool isAuthenticated)
@@ -287,8 +249,25 @@ public sealed class ChatOrchestrator
         }
 
         var normalizedAnswer = answer.Trim().ToLowerInvariant();
-        return normalizedAnswer == "i don't know based on the available information."
-            || normalizedAnswer == "i don't have relevant information to answer your question.";
+        return normalizedAnswer == NoGroundedAnswer.ToLowerInvariant()
+            || normalizedAnswer == NoRelevantInformation.ToLowerInvariant();
+    }
+
+    private static Citation[] SelectAgenticResponseCitations(string rawAnswer, string answer, Citation[] citations)
+    {
+        if (IsNoAnswerResponse(answer))
+        {
+            return [];
+        }
+
+        return SelectAgenticCitationsByAnswerReferences(rawAnswer, citations);
+    }
+
+    private static string NormalizeAnswerOrFallback(string? answer)
+    {
+        return string.IsNullOrWhiteSpace(answer)
+            ? NoGroundedAnswer
+            : answer;
     }
 
     private static Citation[] SelectAgenticCitationsByAnswerReferences(string answer, Citation[] citations)
@@ -328,31 +307,6 @@ public sealed class ChatOrchestrator
             .ToArray();
 
         return filtered.Length > 0 ? filtered : citations;
-    }
-
-    private static bool LooksLikeExtractiveJson(string? answer)
-    {
-        if (string.IsNullOrWhiteSpace(answer))
-        {
-            return false;
-        }
-
-        var trimmed = answer.TrimStart();
-        if (!trimmed.StartsWith("[", StringComparison.Ordinal)
-            && !trimmed.StartsWith("{", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(answer);
-            return doc.RootElement.ValueKind is JsonValueKind.Array or JsonValueKind.Object;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
     }
 
     private static string SanitizeAgenticAnswer(string? answer)
@@ -413,23 +367,4 @@ public sealed class ChatOrchestrator
         return Regex.IsMatch(normalized, @"^Sources\s*\(\d+\)$", RegexOptions.IgnoreCase);
     }
 
-    private async Task<RetrievalResult> RetrieveAnonymousAsync(string query, CancellationToken ct)
-    {
-        try
-        {
-            var publicSearchResult = await _retrievalService.RetrieveAsync(query, userToken: null, ct);
-            if (publicSearchResult.ChunkCount > 0)
-            {
-                return publicSearchResult;
-            }
-
-            _logger.LogInformation("Public Azure AI Search returned no chunks. Falling back to Bing.");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Public Azure AI Search failed for anonymous request. Falling back to Bing.");
-        }
-
-        return await _bingRetrievalService.RetrieveAsync(query, ct);
-    }
 }

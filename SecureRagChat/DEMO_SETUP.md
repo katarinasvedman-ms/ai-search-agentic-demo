@@ -33,7 +33,6 @@ This creates:
 
 - `public-index`
 - `entitled-index`
-- `agentic-index`
 
 The index schema includes a `content` field and a semantic configuration named `default` used by Traditional mode. If you have already created the indexes, recreate them before reseeding so semantic ranking and richer full-document text are both available to retrieval.
 
@@ -47,7 +46,6 @@ This uploads:
 
 - `demo-data/public-documents.json` -> `public-index`
 - `demo-data/entitled-documents.json` -> `entitled-index`
-- Combined public + entitled docs -> `agentic-index` (with ACL fields and citation-friendly metadata)
 
 The sample corpus is organized to mirror a telecom product experience:
 
@@ -69,17 +67,21 @@ Then set frontend env values in `secureragchat-web/.env`.
 
 ## 6. Agentic Retrieval Setup
 
-Create a knowledge source and knowledge base in Azure AI Search, then set:
+Create two search-index knowledge sources and one knowledge base in Azure AI Search, then set:
 
 - `AgenticRetrieval:KnowledgeBaseName`
-- `AgenticRetrieval:OutputMode=extractiveData`
 
-For stable references, configure the knowledge source `source_data_fields` to include at minimum:
+Recommended search-index knowledge sources:
+
+- `public-index` -> guest-safe source
+- `entitled-index` -> permission-filtered source
+
+For stable references, configure each knowledge source `source_data_fields` to include at minimum:
 
 - `id` (stable document identifier)
 - `title` (human-readable citation label)
 - `url` (click target)
-- Optional locator such as `page_number` or `section`
+- Optional locator if your index carries one
 
 Suggested source material for the knowledge base is included under `demo-data/knowledge-base/`.
 
@@ -88,7 +90,8 @@ Current app behavior:
 - Traditional mode demonstrates per-user security trimming via `x-ms-query-source-authorization`.
 - Traditional mode can use semantic ranking when `AzureSearch:EnableSemanticRanking=true`.
 - Agentic mode demonstrates platform-managed retrieval orchestration through Knowledge Base retrieve API.
-- Authenticated Agentic requests now also forward `x-ms-query-source-authorization` to the knowledge base retrieve call.
+- Agentic mode can use both the public and entitled index-backed knowledge sources in one knowledge base.
+- Authenticated Agentic requests forward `x-ms-query-source-authorization` to the knowledge base retrieve call so Azure AI Search can trim entitled results at query time.
 - Traditional mode is still the easiest place to show the proof because the search path and filters are explicit in the debug panel.
 
 ## 7. Rehearsal Checklist
